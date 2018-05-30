@@ -350,18 +350,11 @@ BigIntegerCmpInt(c1, c2)
      unsigned int c2;
 {
 #ifdef OPENSSL
-  if(c1->top > 1)
-    return 1;
-  else if(c1->top < 1)
-    return (c2 > 0) ? -1 : 0;
-  else {
-    if(c1->d[0] > c2)
-      return 1;
-    else if(c1->d[0] < c2)
-      return -1;
-    else
-      return 0;
-  }
+  
+  BigInteger t = BigIntegerFromInt(c2);
+  int rv = BigIntegerCmp(c1, t);
+  BigIntegerFree(t);
+  return rv;
 #elif defined(CRYPTOLIB)
   BigInteger t;
   int rv;
@@ -698,8 +691,9 @@ BigIntegerModExp(r, b, e, m, c, a)
     BN_mod_exp(r, b, e, m, c);
   }
 #if OPENSSL_VERSION_NUMBER >= 0x00906000
-  else if(b->top == 1) {  /* 0.9.6 and above has mont_word optimization */
-    BN_ULONG B = b->d[0];
+  else if(BigIntegerBitLen(b) == sizeof(BN_ULONG)) {  /* 0.9.6 and above has mont_word optimization */
+    BN_ULONG B;
+	BigIntegerToBytes(b, B, sizeof(B));
     BN_mod_exp_mont_word(r, B, e, m, c, a);
   }
 #endif

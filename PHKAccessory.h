@@ -7,26 +7,19 @@
 //
 //
 
-#include <string.h>
 #include <strings.h>
+#include <string>
+
 #define __STDC_LIMIT_MACROS
-#include <stdint.h>
-extern "C" {
-#include <stdlib.h>
-}
-
-#include "PHKNetworkIP.h"
-
-#include "PHKControllerRecord.h"
-
-extern "C" {
-#include "PHKArduinoLightInterface.h"
-}
-
+#include <cstdint>
+#include <cstdlib>
+#include <functional>
 #include <vector>
 
-#if MCU
-#else
+#include "PHKNetworkIP.h"
+#include "PHKControllerRecord.h"
+
+#if !MCU
 #include <pthread.h>
 #endif
 
@@ -199,9 +192,9 @@ typedef enum {
 } charType;
 
 enum {
-    premission_read = 1,
-    premission_write = 1 << 1,
-    premission_notify = 1 << 2  //Notify = Accessory will notice the controller
+    permission_read = 1,
+    permission_write = 1 << 1,
+    permission_notify = 1 << 2  //Notify = Accessory will notice the controller
 };
 
 typedef enum {
@@ -219,39 +212,51 @@ public:
     const unsigned int type;
     const int premission;
     int iid;
+	std::function<std::string(connectionInfo* sender)> perUserQuery;
+
     characteristics(unsigned int _type, int _premission): type(_type), premission(_premission) {}
-    virtual string value(connectionInfo *sender) = 0;
-    void setValue(string str) {
+    
+	virtual std::string value(connectionInfo *sender) = 0;
+    
+	void setValue(std::string str) {
         setValue(str, NULL);
     }
-    virtual void setValue(string str, connectionInfo *sender) = 0;
-    virtual string describe(connectionInfo *sender) = 0;
-    string (*perUserQuery)(connectionInfo *sender) = 0;
-    bool writable() { return premission&premission_write; }
-    bool notifiable() { return premission&premission_notify; }
-    void notify();
+    
+	virtual void setValue(std::string str, connectionInfo *sender) = 0;
+    
+	virtual std::string describe(connectionInfo *sender) = 0;
+    
+	bool writable() { return premission&permission_write; }
+    
+	bool notifiable() { return premission&permission_notify; }
+    
+	void notify();
 };
 
 //To store value of device state, subclass the following type
 class boolCharacteristics: public characteristics {
 public:
     bool _value;
-    void (*valueChangeFunctionCall)(bool oldValue, bool newValue, connectionInfo *sender) = NULL;
+	std::function<void(bool oldValue, bool newValue, connectionInfo* sender)> valueChangeFunctionCall;
+
     boolCharacteristics(unsigned int _type, int _premission): characteristics(_type, _premission) {}
-    virtual string value(connectionInfo *sender) {
-        if (perUserQuery != 0)
+
+    virtual std::string value(connectionInfo *sender) {
+        if (perUserQuery != nullptr)
             return perUserQuery(sender);
         if (_value)
             return "1";
         return "0";
     }
-    virtual void setValue(string str, connectionInfo *sender) {
-        bool newValue = (strncmp("true", str.c_str(), 4)==0)||(strncmp("1", str.c_str(), 1)==0);
-        if (valueChangeFunctionCall)
+
+    virtual void setValue(std::string str, connectionInfo *sender) {
+        bool newValue = ("true" == str || "1" == str);
+        if (valueChangeFunctionCall != nullptr)
             valueChangeFunctionCall(_value, newValue, sender);
         _value = newValue;
     }
-    virtual string describe(connectionInfo *sender);
+
+    virtual std::string describe(connectionInfo *sender);
 };
 
 class floatCharacteristics: public characteristics {
@@ -260,15 +265,18 @@ public:
     const float _minVal, _maxVal, _step;
     const unit _unit;
     void (*valueChangeFunctionCall)(float oldValue, float newValue, connectionInfo *sender) = NULL;
-    floatCharacteristics(unsigned int _type, int _premission, float minVal, float maxVal, float step, unit charUnit): characteristics(_type, _premission), _minVal(minVal), _maxVal(maxVal), _step(step), _unit(charUnit) {}
-    virtual string value(connectionInfo *sender) {
-        if (perUserQuery != 0)
+
+    floatCharacteristics(unsigned int _type, int _premission, float minVal, float maxVal, float step, unit charUnit)
+		: characteristics(_type, _premission), _minVal(minVal), _maxVal(maxVal), _step(step), _unit(charUnit) {}
+
+    virtual std::string value(connectionInfo *sender) {
+        if (perUserQuery != nullptr)
             return perUserQuery(sender);
-        char temp[16];
-        snprintf(temp, 16, "%f", _value);
-        return temp;
+
+        return std::to_string(_value);
     }
-    virtual void setValue(string str, connectionInfo *sender) {
+
+    virtual void setValue(std::string str, connectionInfo *sender) {
         float temp = atof(str.c_str());
         if (temp == temp) {
             if (valueChangeFunctionCall)
@@ -276,7 +284,7 @@ public:
             _value = temp;
         }
     }
-    virtual string describe(connectionInfo *sender);
+    virtual std::string describe(connectionInfo *sender);
 };
 
 class intCharacteristics: public characteristics {
@@ -284,75 +292,92 @@ public:
     int _value;
     const int _minVal, _maxVal, _step;
     const unit _unit;
-    void (*valueChangeFunctionCall)(int oldValue, int newValue, connectionInfo *sender) = NULL;
-    intCharacteristics(unsigned int _type, int _premission, int minVal, int maxVal, int step, unit charUnit): characteristics(_type, _premission), _minVal(minVal), _maxVal(maxVal), _step(step), _unit(charUnit) {
+	std::function<void(int oldValue, int newValue, connectionInfo *sender)> valueChangeFunctionCall;
+
+    intCharacteristics(unsigned int _type, int _premission, int minVal, int maxVal, int step, unit charUnit)
+		: characteristics(_type, _premission), _minVal(minVal), _maxVal(maxVal), _step(step), _unit(charUnit) 
+	{
         _value = minVal;
     }
+
     virtual string value(connectionInfo *sender) {
-        if (perUserQuery != 0)
+        if (perUserQuery != nullptr)
             return perUserQuery(sender);
-        char temp[16];
-        snprintf(temp, 16, "%d", _value);
-        return temp;
+
+        return std::to_string((int)_value);
     }
-    virtual void setValue(string str, connectionInfo *sender) {
+
+    virtual void setValue(std::string str, connectionInfo *sender) {
         float temp = atoi(str.c_str());
         if (temp == temp) {
-            if (valueChangeFunctionCall)
+            if (valueChangeFunctionCall != nullptr)
                 valueChangeFunctionCall(_value, temp, sender);
             _value = temp;
         }
     }
-    virtual string describe(connectionInfo *sender);
+
+    virtual std::string describe(connectionInfo *sender);
 };
 
 class stringCharacteristics: public characteristics {
 public:
-    string _value;
+    std::string _value;
     const unsigned short maxLen;
-    void (*valueChangeFunctionCall)(string oldValue, string newValue, connectionInfo *sender) = NULL;
-    stringCharacteristics(unsigned int _type, int _premission, unsigned short _maxLen): characteristics(_type, _premission), maxLen(_maxLen) {}
-    virtual string value(connectionInfo *sender) {
-        if (perUserQuery != 0)
-            return "\""+perUserQuery(sender)+"\"";
-        return "\""+_value+"\"";
+	std::function<void(std::string oldValue, std::string newValue, connectionInfo* sender)> valueChangeFunctionCall;
+
+    stringCharacteristics(unsigned int _type, int _premission, unsigned short _maxLen)
+		: characteristics(_type, _premission), maxLen(_maxLen) {}
+
+    virtual std::string value(connectionInfo *sender) {
+		if (perUserQuery != nullptr)
+			return "\"" + perUserQuery(sender) + "\"";
+		return "\"" + _value + "\"";
     }
-    virtual void setValue(string str, connectionInfo *sender) {
-        if (valueChangeFunctionCall)
+
+    virtual void setValue(std::string str, connectionInfo *sender) {
+        if (valueChangeFunctionCall != nullptr)
             valueChangeFunctionCall(_value, str, sender);
         _value = str;
     }
-    virtual string describe(connectionInfo *sender);
+
+    virtual std::string describe(connectionInfo *sender);
 };
 
 //Abstract Layer of object
 class Service {
 public:
     int serviceID, uuid;
-    vector<characteristics *> _characteristics;
-    Service(int _uuid): uuid(_uuid) {}
+    std::vector<characteristics *> _characteristics;
+
+    Service(int _uuid) : uuid(_uuid) {}
+
     virtual short numberOfCharacteristics() { return _characteristics.size(); }
+
     virtual characteristics *characteristicsAtIndex(int index) { return _characteristics[index]; }
-    string describe(connectionInfo *sender);
+
+    std::string describe(connectionInfo *sender);
 };
 
 class Accessory {
 public:
     int numberOfInstance = 0;
     int aid;
-    vector<Service *>_services;
+    std::vector<Service *>_services;
+
     void addService(Service *ser) {
         ser->serviceID = ++numberOfInstance;
         _services.push_back(ser);
     }
+
     void addCharacteristics(Service *ser, characteristics *cha) {
         cha->iid = ++numberOfInstance;
         cha->accessory = this;
         ser->_characteristics.push_back(cha);
     }
+
     bool removeService(Service *ser) {
         bool exist = false;
-        for (vector<Service *>::iterator it = _services.begin(); it != _services.end(); it++) {
+        for (auto it = _services.begin(); it != _services.end(); it++) {
             if (*it == ser) {
                 _services.erase(it);
                 exist = true;
@@ -360,10 +385,11 @@ public:
         }
         return exist;
     }
+
     bool removeCharacteristics(characteristics *cha) {
         bool exist = false;
-        for (vector<Service *>::iterator it = _services.begin(); it != _services.end(); it++) {
-            for (vector<characteristics *>::iterator jt = (*it)->_characteristics.begin(); jt != (*it)->_characteristics.end(); jt++) {
+        for (auto it = _services.begin(); it != _services.end(); it++) {
+            for (auto jt = (*it)->_characteristics.begin(); jt != (*it)->_characteristics.end(); jt++) {
                 if (*jt == cha) {
                     (*it)->_characteristics.erase(jt);
                     exist = true;
@@ -372,63 +398,76 @@ public:
         }
         return exist;
     }
+
     Accessory() {}
+
     short numberOfService() { return _services.size(); }
+
     Service *serviceAtIndex(int index) {
-        for (vector<Service *>::iterator it = _services.begin(); it != _services.end(); it++) {
+        for (auto it = _services.begin(); it != _services.end(); it++) {
             if ((*it)->serviceID == index) {
                 return *it;
             }
         }
-        return NULL;
+        return nullptr;
     }
+
     characteristics *characteristicsAtIndex(int index) {
-        for (vector<Service *>::iterator it = _services.begin(); it != _services.end(); it++) {
-            for (vector<characteristics *>::iterator jt = (*it)->_characteristics.begin(); jt != (*it)->_characteristics.end(); jt++) {
+        for (auto it = _services.begin(); it != _services.end(); it++) {
+            for (auto jt = (*it)->_characteristics.begin(); jt != (*it)->_characteristics.end(); jt++) {
                 if ((*jt)->iid == index) {
                     return *jt;
                 }
             }
         }
-        return NULL;
+        return nullptr;
     }
-    string describe(connectionInfo *sender);
+    
+	std::string describe(connectionInfo *sender);
 };
 
 class AccessorySet {
 private:
-    vector<Accessory *> _accessories;
+    std::vector<Accessory *> _accessories;
     int _aid = 0;
+
     AccessorySet() {
         pthread_mutex_init(&accessoryMutex, NULL);
     }
-    AccessorySet(AccessorySet const&);
-    void operator=(AccessorySet const&);
+
+    AccessorySet(AccessorySet const&) = delete;
+    void operator=(AccessorySet const&) = delete;
+
 public:
     static AccessorySet& getInstance() {
         static AccessorySet instance;
         
         return instance;
     }
+
     pthread_mutex_t accessoryMutex;
+
     short numberOfAccessory() {
         return _accessories.size();
     }
+
     Accessory *accessoryAtIndex(int index) {
-        for (vector<Accessory *>::iterator it = _accessories.begin(); it != _accessories.end(); it++) {
+        for (auto it = _accessories.begin(); it != _accessories.end(); it++) {
             if ((*it)->aid == index) {
                 return *it;
             }
         }
-        return NULL;
+        return nullptr;
     }
+
     void addAccessory(Accessory *acc) {
         acc->aid = ++_aid;
         _accessories.push_back(acc);
     }
+
     bool removeAccessory(Accessory *acc) {
         bool exist = false;
-        for (vector<Accessory *>::iterator it = _accessories.begin(); it != _accessories.end(); it++) {
+        for (auto it = _accessories.begin(); it != _accessories.end(); it++) {
             if (*it == acc) {
                 _accessories.erase(it);
                 exist = true;
@@ -436,10 +475,12 @@ public:
         }
         return exist;
     }
+
     ~AccessorySet() {
         pthread_mutex_destroy(&accessoryMutex);
     }
-    string describe(connectionInfo *sender);
+
+    std::string describe(connectionInfo *sender);
 };
 
 typedef void (*identifyFunction)(bool oldValue, bool newValue, connectionInfo *sender);
@@ -455,4 +496,5 @@ struct broadcastInfo {
     void *sender;
     char *desc;
 };
+
 void *announce(void *info);

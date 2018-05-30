@@ -55,8 +55,7 @@ extern "C" {
 
 #include "Configuration.h"
 
-#if MCU
-#else
+#if !MCU
 #include <pthread.h>
 #endif
 
@@ -64,8 +63,7 @@ using namespace std;
 
 #define portNumber 0
 
-#if MCU
-#else
+#if !MCU
 connectionInfo connection[numberOfClient];
 #endif
 
@@ -272,6 +270,7 @@ void broadcastMessage(void *sender, char *resultData, size_t resultLen) {
         }
     }
 }
+
 void *connectionLoop(void *threadInfo) {
     connectionInfo *info = (connectionInfo *)threadInfo;
     int subSocket = info->subSocket;    ssize_t len;
@@ -330,7 +329,7 @@ void PHKNetworkIP::handleConnection() const {
     int subSocket = accept(_socket_v4, (struct sockaddr *)&client_addr, &clen);
     
     //Before anything start, get sniff the host name of the client
-    string socketName = "";
+    std::string socketName = "";
     if (clen == sizeof(struct sockaddr_in)) {
         char buffer[1024];
         int res = getnameinfo((struct sockaddr *)&client_addr, clen, buffer, 1024, NULL, 0, NI_NOFQDN);
@@ -878,7 +877,8 @@ void connectionInfo::handlePairVerify() {
 void connectionInfo::handleAccessoryRequest() {
     
     //New connection has finish verify, so announce
-    newConnection(this);
+	if(newConnection)
+		newConnection(this);
     
     char *decryptData = new char[2048];
     
@@ -1018,7 +1018,8 @@ const char *copyLine(const char *rawData, char *destination) {
 }
 
 const char *skipTillChar(const char *ptr, const char target) {
-    for (; (*ptr)!=0&&(*ptr)!=target; ptr++);  ptr++;
+    for (; (*ptr)!=0&&(*ptr)!=target; ptr++);  
+	ptr++;
     return ptr;
 }
 
@@ -1158,7 +1159,7 @@ PHKNetworkResponse::PHKNetworkResponse(unsigned short _responseCode) {
     responseCode = _responseCode;
 }
 
-string PHKNetworkResponse::responseType() {
+std::string PHKNetworkResponse::responseType() {
     switch (responseCode) {
         case 200:
             return "OK";
@@ -1172,7 +1173,7 @@ inline void int2str(int i, char *s) { sprintf(s,"%d",i); }
 void PHKNetworkResponse::getBinaryPtr(char **buffer, int *contentLength) {
     char tempCstr[5];   int2str(responseCode, tempCstr);
     string temp = "HTTP/1.1 ";
-    temp += tempCstr+(" "+responseType());
+	temp += tempCstr + (" " + responseType());
     temp += "\r\nContent-Type: application/pairing+tlv8\r\nContent-Length: ";
     const char *dataPtr;    unsigned short dataLen;
     data.rawData(&dataPtr, &dataLen);

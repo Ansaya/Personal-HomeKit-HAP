@@ -5,6 +5,8 @@
 #define max_batch_size 64
 #define heap_batch_size ((max_batch_size * 2) + 1)
 
+#include <string.h>
+
 /* which limb is the 128th bit in? */
 static const size_t limb128bits = (128 + bignum256modm_bits_per_limb - 1) / bignum256modm_bits_per_limb;
 

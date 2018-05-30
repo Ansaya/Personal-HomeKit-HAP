@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include "t_defines.h"
 #include "cstr.h"
+#include <string.h>
 
 static int
 hexDigitToInt(c)

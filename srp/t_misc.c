@@ -29,15 +29,14 @@
 
 #include "t_defines.h"
 
-#ifdef HAVE_UNISTD_H
 #include <unistd.h>
-#endif /* HAVE_UNISTD_H */
 
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/time.h>
+#include <string.h>
 
 #ifdef WIN32
 #include <process.h>

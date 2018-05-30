@@ -15,6 +15,8 @@
 #define bignum256modm_bits_per_limb 30
 #define bignum256modm_limb_size 9
 
+#include <string.h>
+
 typedef uint32_t bignum256modm_element_t;
 typedef bignum256modm_element_t bignum256modm[9];
 

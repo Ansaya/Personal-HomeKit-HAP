@@ -12,9 +12,9 @@
 #define PowerOnTest 0
 
 //Device Setting
-#define deviceName "House Sensor"    //Name
+#define deviceName "Flower House"    //Name
 #define deviceIdentity "11:10:34:23:51:12"  //ID
-#define _manufactuerName "ET Chan"   //Manufactuer
+#define _manufactuerName "Flower"   //Manufactuer
 #define devicePassword "523-12-643" //Password
 #define deviceUUID "62F47751-8F26-46BF-9552-8F4238E67D60"   //UUID, for pair verify
 #define controllerRecordsAddress "./PHK_controller" //Where to store the client keys

@@ -7,12 +7,11 @@
 //
 
 #include "PHKAccessory.h"
-#include "PHKNetworkIP.h"
 #include "Configuration.h"
 
 
-const char hapJsonType[] = "application/hap+json";
-const char pairingTlv8Type[] = "application/pairing+tlv8";
+static const char hapJsonType[] = "application/hap+json";
+static const char pairingTlv8Type[] = "application/pairing+tlv8";
 
 
 void *announce(void *info) {
@@ -20,7 +19,7 @@ void *announce(void *info) {
     void *sender = _info->sender;
     char *desc = _info->desc;
     
-    char *reply = new char[1024];
+    char reply[1024];
     int len = snprintf(reply, 1024, "EVENT/1.0 200 OK\r\nContent-Type: application/hap+json\r\nContent-Length: %lu\r\n\r\n%s", strlen(desc), desc);
     
 #if HomeKitLog == 1 && HomeKitReplyHeaderLog==1
@@ -28,51 +27,55 @@ void *announce(void *info) {
 #endif
     
     broadcastMessage(sender, reply, len);
-    delete [] reply;
     
-    delete [] desc;
-    delete [] info;
+    delete[] desc;
+    delete info;
+
 }
 
 //Wrap to JSON
-inline string wrap(const char *str) { return (string)"\""+str+"\""; }
+inline std::string wrap(const char *str) { return (std::string)"\"" + str + "\""; }
+
 //Value String
-inline string attribute(unsigned int type, unsigned short acclaim, int p, string value) {
-    string result;
-    if (p & premission_read) {
+inline std::string attribute(unsigned int type, unsigned short acclaim, int p, std::string value) 
+{
+	std::string result;
+    if (p & permission_read) {
         result += wrap("value")+":";
         result += value;
         result += ",";
     }
     
-    result += wrap("perms")+":";
+	result += wrap("perms") + ":";
     result += "[";
-    if (p & premission_read) result += wrap("pr")+",";
-    if (p & premission_write) result += wrap("pw")+",";
-    if (p & premission_notify) result += wrap("ev")+",";
+	if (p & permission_read) result += wrap("pr") + ",";
+	if (p & permission_write) result += wrap("pw") + ",";
+	if (p & permission_notify) result += wrap("ev") + ",";
     result = result.substr(0, result.size()-1);
     result += "]";
     result += ",";
     
     char tempStr[4];
     snprintf(tempStr, 4, "%X", type);
-    result += wrap("type")+":"+wrap(tempStr);
+	result += wrap("type") + ":" + wrap(tempStr);
     result += ",";
     
-    snprintf(tempStr, 4, "%hd", acclaim);
-    result += wrap("iid")+":"+tempStr;
+	snprintf(tempStr, 4, "%hd", acclaim);
+	result += wrap("iid") + ":" + tempStr;
     result += ",";
     
     result += "\"format\":\"bool\"";
     
-    return "{"+result+"}";
+	return "{" + result + "}";
 }
-inline string attribute(unsigned int type, unsigned short acclaim, int p, string value, int minVal, int maxVal, int step, unit valueUnit) {
-    string result;
+
+inline std::string attribute(unsigned int type, unsigned short acclaim, int p, std::string value, int minVal, int maxVal, int step, unit valueUnit)
+{
+	std::string result;
     char tempStr[16];
     
-    if (p & premission_read) {
-        result += wrap("value")+":"+value;
+    if (p & permission_read) {
+		result += wrap("value") + ":" + value;
         result += ",";
     }
     
@@ -90,9 +93,9 @@ inline string attribute(unsigned int type, unsigned short acclaim, int p, string
     
     result += wrap("perms")+":";
     result += "[";
-    if (p & premission_read) result += wrap("pr")+",";
-    if (p & premission_write) result += wrap("pw")+",";
-    if (p & premission_notify) result += wrap("ev")+",";
+    if (p & permission_read) result += wrap("pr")+",";
+    if (p & permission_write) result += wrap("pw")+",";
+    if (p & permission_notify) result += wrap("ev")+",";
     result = result.substr(0, result.size()-1);
     result += "]";
     result += ",";
@@ -121,11 +124,12 @@ inline string attribute(unsigned int type, unsigned short acclaim, int p, string
     
     return "{"+result+"}";
 }
-inline string attribute(unsigned int type, unsigned short acclaim, int p, string value, float minVal, float maxVal, float step, unit valueUnit) {
-    string result;
+
+inline std::string attribute(unsigned int type, unsigned short acclaim, int p, std::string value, float minVal, float maxVal, float step, unit valueUnit) {
+	std::string result;
     char tempStr[16];
     
-    if (p & premission_read) {
+    if (p & permission_read) {
         result += wrap("value")+":"+value;
         result += ",";
     }
@@ -144,9 +148,9 @@ inline string attribute(unsigned int type, unsigned short acclaim, int p, string
     
     result += wrap("perms")+":";
     result += "[";
-    if (p & premission_read) result += wrap("pr")+",";
-    if (p & premission_write) result += wrap("pw")+",";
-    if (p & premission_notify) result += wrap("ev")+",";
+    if (p & permission_read) result += wrap("pr")+",";
+    if (p & permission_write) result += wrap("pw")+",";
+    if (p & permission_notify) result += wrap("ev")+",";
     result = result.substr(0, result.size()-1);
     result += "]";
     result += ",";
@@ -176,9 +180,10 @@ inline string attribute(unsigned int type, unsigned short acclaim, int p, string
     return "{"+result+"}";
 }
 //Raw value
-inline string attribute(unsigned int type, unsigned short acclaim, int p, bool value) {
-    string result;
-    if (p & premission_read) {
+inline std::string attribute(unsigned int type, unsigned short acclaim, int p, bool value) 
+{
+	std::string result;
+    if (p & permission_read) {
         result += wrap("value")+":";
         if (value) result += "true";
         else result += "false";
@@ -187,9 +192,9 @@ inline string attribute(unsigned int type, unsigned short acclaim, int p, bool v
     
     result += wrap("perms")+":";
     result += "[";
-    if (p & premission_read) result += wrap("pr")+",";
-    if (p & premission_write) result += wrap("pw")+",";
-    if (p & premission_notify) result += wrap("ev")+",";
+    if (p & permission_read) result += wrap("pr")+",";
+    if (p & permission_write) result += wrap("pw")+",";
+    if (p & permission_notify) result += wrap("ev")+",";
     result = result.substr(0, result.size()-1);
     result += "]";
     result += ",";
@@ -207,13 +212,15 @@ inline string attribute(unsigned int type, unsigned short acclaim, int p, bool v
     
     return "{"+result+"}";
 }
-inline string attribute(unsigned int type, unsigned short acclaim, int p, int value, int minVal, int maxVal, int step, unit valueUnit) {
-    string result;
+
+inline std::string attribute(unsigned int type, unsigned short acclaim, int p, int value, int minVal, int maxVal, int step, unit valueUnit) 
+{
+	std::string result;
     char tempStr[16];
     
     snprintf(tempStr, 16, "%d", value);
     
-    if (p & premission_read) {
+    if (p & permission_read) {
         result += wrap("value")+":"+tempStr;
         result += ",";
     }
@@ -232,9 +239,9 @@ inline string attribute(unsigned int type, unsigned short acclaim, int p, int va
     
     result += wrap("perms")+":";
     result += "[";
-    if (p & premission_read) result += wrap("pr")+",";
-    if (p & premission_write) result += wrap("pw")+",";
-    if (p & premission_notify) result += wrap("ev")+",";
+    if (p & permission_read) result += wrap("pr")+",";
+    if (p & permission_write) result += wrap("pw")+",";
+    if (p & permission_notify) result += wrap("ev")+",";
     result = result.substr(0, result.size()-1);
     result += "]";
     result += ",";
@@ -263,13 +270,15 @@ inline string attribute(unsigned int type, unsigned short acclaim, int p, int va
     
     return "{"+result+"}";
 }
-inline string attribute(unsigned int type, unsigned short acclaim, int p, float value, float minVal, float maxVal, float step, unit valueUnit) {
-    string result;
+
+inline std::string attribute(unsigned int type, unsigned short acclaim, int p, float value, float minVal, float maxVal, float step, unit valueUnit) 
+{
+	std::string result;
     char tempStr[16];
     
     snprintf(tempStr, 16, "%f", value);
     
-    if (p & premission_read) {
+    if (p & permission_read) {
         result += wrap("value")+":"+tempStr;
         result += ",";
     }
@@ -288,9 +297,9 @@ inline string attribute(unsigned int type, unsigned short acclaim, int p, float 
     
     result += wrap("perms")+":";
     result += "[";
-    if (p & premission_read) result += wrap("pr")+",";
-    if (p & premission_write) result += wrap("pw")+",";
-    if (p & premission_notify) result += wrap("ev")+",";
+    if (p & permission_read) result += wrap("pr")+",";
+    if (p & permission_write) result += wrap("pw")+",";
+    if (p & permission_notify) result += wrap("ev")+",";
     result = result.substr(0, result.size()-1);
     result += "]";
     result += ",";
@@ -319,20 +328,22 @@ inline string attribute(unsigned int type, unsigned short acclaim, int p, float 
     
     return "{"+result+"}";
 }
-inline string attribute(unsigned int type, unsigned short acclaim, int p, string value, unsigned short len) {
-    string result;
+
+inline std::string attribute(unsigned int type, unsigned short acclaim, int p, std::string value, unsigned short len) 
+{
+	std::string result;
     char tempStr[4];
     
-    if (p & premission_read) {
+    if (p & permission_read) {
         result += wrap("value")+":"+value.c_str();
         result += ",";
     }
     
     result += wrap("perms")+":";
     result += "[";
-    if (p & premission_read) result += wrap("pr")+",";
-    if (p & premission_write) result += wrap("pw")+",";
-    if (p & premission_notify) result += wrap("ev")+",";
+    if (p & permission_read) result += wrap("pr")+",";
+    if (p & permission_write) result += wrap("pw")+",";
+    if (p & permission_notify) result += wrap("ev")+",";
     result = result.substr(0, result.size()-1);
     result += "]";
     result += ",";
@@ -353,10 +364,12 @@ inline string attribute(unsigned int type, unsigned short acclaim, int p, string
     
     result += "\"format\":\"string\"";
     
-    return "{"+result+"}";
+	return "{" + result + "}";
 }
-inline string arrayWrap(string *s, unsigned short len) {
-    string result;
+
+inline std::string arrayWrap(std::string *s, unsigned short len) 
+{
+	std::string result;
     
     result += "[";
     
@@ -369,8 +382,10 @@ inline string arrayWrap(string *s, unsigned short len) {
     
     return result;
 }
-inline string dictionaryWrap(string *key, string *value, unsigned short len) {
-    string result;
+
+inline std::string dictionaryWrap(std::string *key, std::string *value, unsigned short len) 
+{
+	std::string result;
     
     result += "{";
     
@@ -384,35 +399,39 @@ inline string dictionaryWrap(string *key, string *value, unsigned short len) {
     return result;
 }
 
-void characteristics::notify() {
+void characteristics::notify() 
+{
     char *broadcastTemp = new char[1024];
-    snprintf(broadcastTemp, 1024, "{\"characteristics\":[{\"aid\": %d, \"iid\": %d, \"value\": %s}]}", accessory->aid, iid, value(NULL).c_str());
+	snprintf(broadcastTemp, 1024, "{\"characteristics\":[{\"aid\": %d, \"iid\": %d, \"value\": %s}]}", accessory->aid, iid, value(NULL).c_str());
+
     broadcastInfo * info = new broadcastInfo;
     info->sender = this;
     info->desc = broadcastTemp;
+
     pthread_t thread;
     pthread_create(&thread, NULL, announce, info);
+	pthread_detach(thread);
 }
 
-string boolCharacteristics::describe(connectionInfo *sender) {
+std::string boolCharacteristics::describe(connectionInfo *sender) {
     return attribute(type, iid, premission, value(sender));
 }
 
-string floatCharacteristics::describe(connectionInfo *sender) {
+std::string floatCharacteristics::describe(connectionInfo *sender) {
     return attribute(type, iid, premission, value(sender), _minVal, _maxVal, _step, _unit);
 }
 
-string intCharacteristics::describe(connectionInfo *sender) {
+std::string intCharacteristics::describe(connectionInfo *sender) {
     return attribute(type, iid, premission, value(sender), _minVal, _maxVal, _step, _unit);
 }
 
-string stringCharacteristics::describe(connectionInfo *sender) {
+std::string stringCharacteristics::describe(connectionInfo *sender) {
     return attribute(type, iid, premission, value(sender), maxLen);
 }
 
-string Service::describe(connectionInfo *sender) {
-    string keys[3] = {"iid", "type", "characteristics"};
-    string values[3];
+std::string Service::describe(connectionInfo *sender) {
+	std::string keys[3] = {"iid", "type", "characteristics"};
+	std::string values[3];
     {
         char temp[8];
         snprintf(temp, 8, "%d", serviceID);
@@ -425,7 +444,7 @@ string Service::describe(connectionInfo *sender) {
     }
     {
         int no = numberOfCharacteristics();
-        string *chars = new string[no];
+		std::string *chars = new std::string[no];
         for (int i = 0; i < no; i++) {
             chars[i] = _characteristics[i]->describe(sender);
         }
@@ -435,9 +454,9 @@ string Service::describe(connectionInfo *sender) {
     return dictionaryWrap(keys, values, 3);
 }
 
-string Accessory::describe(connectionInfo *sender) {
-    string keys[2];
-    string values[2];
+std::string Accessory::describe(connectionInfo *sender) {
+	std::string keys[2];
+	std::string values[2];
     
     {
         keys[0] = "aid";
@@ -449,7 +468,7 @@ string Accessory::describe(connectionInfo *sender) {
     {
         //Form services list
         int noOfService = numberOfService();
-        string *services = new string[noOfService];
+		std::string *services = new std::string[noOfService];
         for (int i = 0; i < noOfService; i++) {
             services[i] = _services[i]->describe(sender);
         }
@@ -458,33 +477,37 @@ string Accessory::describe(connectionInfo *sender) {
         delete [] services;
     }
     
-    string result = dictionaryWrap(keys, values, 2);
+	std::string result = dictionaryWrap(keys, values, 2);
     return result;
 }
 
-string AccessorySet::describe(connectionInfo *sender) {
+std::string AccessorySet::describe(connectionInfo *sender) {
     int numberOfAcc = numberOfAccessory();
-    string *desc = new string[numberOfAcc];
+	std::string *desc = new std::string[numberOfAcc];
     for (int i = 0; i < numberOfAcc; i++) {
         desc[i] = _accessories[i]->describe(sender);
     }
-    string result = arrayWrap(desc, numberOfAcc);
+
+	std::string result = arrayWrap(desc, numberOfAcc);
     delete [] desc;
-    string key = "accessories";
-    result = dictionaryWrap(&key, &result, 1);
+	std::string key = "accessories";
+    
+	result = dictionaryWrap(&key, &result, 1);
     return result;
 }
 
-void updateValueFromDeviceEnd(characteristics *c, int aid, int iid, string value) {
+void updateValueFromDeviceEnd(characteristics *c, int aid, int iid, std::string value) {
     c->setValue(value);
     char *broadcastTemp = new char[1024];
     snprintf(broadcastTemp, 1024, "{\"characteristics\":[{\"aid\":%d,\"iid\":%d,\"value\":%s}]}", aid, iid, value.c_str());
+
     broadcastInfo * info = new broadcastInfo;
     info->sender = c;
     info->desc = broadcastTemp;
+
     pthread_t thread;
     pthread_create(&thread, NULL, announce, info);
-    
+	pthread_detach(thread);
 }
 
 void handleAccessory(const char *request, unsigned int requestLen, char **reply, unsigned int *replyLen, connectionInfo *sender) {
@@ -534,7 +557,7 @@ void handleAccessory(const char *request, unsigned int requestLen, char **reply,
         printf("Ask for accessories info\n");
 #endif
         statusCode = 200;
-        string desc = AccessorySet::getInstance().describe(sender);
+		std::string desc = AccessorySet::getInstance().describe(sender);
         replyDataLen = desc.length();
         replyData = new char[replyDataLen+1];
         bcopy(desc.c_str(), replyData, replyDataLen);
@@ -595,7 +618,7 @@ void handleAccessory(const char *request, unsigned int requestLen, char **reply,
             
             statusCode = 404;
             
-            string result = "[";
+			std::string result = "[";
             
             while (strlen(indexBuffer) > 0) {
                 
@@ -620,16 +643,14 @@ void handleAccessory(const char *request, unsigned int requestLen, char **reply,
 #if HomeKitLog == 1
                         printf("Ask for one characteristics: %d . %d\n", aid, iid);
 #endif
-                        char c1[3], c2[3];
-                        sprintf(c1, "%d", aid);
-                        sprintf(c2, "%d", iid);
-                        string s[3] = {string(c1), string(c2), c->value(sender)};
-                        string k[3] = {"aid", "iid", "value"};
+
+						std::string s[3] = {std::to_string(aid), std::to_string(iid), c->value(sender)};
+						std::string k[3] = {"aid", "iid", "value"};
                         if (result.length() != 1) {
                             result += ",";
                         }
                         
-                        string _result = dictionaryWrap(k, s, 3);
+						std::string _result = dictionaryWrap(k, s, 3);
                         result += _result;
                         
                     }
@@ -639,7 +660,7 @@ void handleAccessory(const char *request, unsigned int requestLen, char **reply,
             
             result += "]";
             
-            string d = "characteristics";
+			std::string d = "characteristics";
             result = dictionaryWrap(&d, &result, 1);
             
             replyDataLen = result.length();
@@ -718,6 +739,7 @@ void handleAccessory(const char *request, unsigned int requestLen, char **reply,
                                 info->desc = broadcastTemp;
                                 pthread_t thread;
                                 pthread_create(&thread, NULL, announce, info);
+								pthread_detach(thread);
                                 
                                 statusCode = 204;
                                 
@@ -769,27 +791,29 @@ void handleAccessory(const char *request, unsigned int requestLen, char **reply,
     
 }
 
-void addInfoServiceToAccessory(Accessory *acc, string accName, string manufactuerName, string modelName, string serialNumber, identifyFunction identifyCallback) {
+void addInfoServiceToAccessory(Accessory *acc, std::string accName, std::string manufactuerName, std::string modelName, 
+	std::string serialNumber, identifyFunction identifyCallback) 
+{
     Service *infoService = new Service(serviceType_accessoryInfo);
     acc->addService(infoService);
     
-    stringCharacteristics *accNameCha = new stringCharacteristics(charType_serviceName, premission_read, 0);
+    stringCharacteristics *accNameCha = new stringCharacteristics(charType_serviceName, permission_read, 0);
     accNameCha->characteristics::setValue(accName);
     acc->addCharacteristics(infoService, accNameCha);
     
-    stringCharacteristics *manNameCha = new stringCharacteristics(charType_manufactuer, premission_read, 0);
+    stringCharacteristics *manNameCha = new stringCharacteristics(charType_manufactuer, permission_read, 0);
     manNameCha->characteristics::setValue(manufactuerName);
     acc->addCharacteristics(infoService, manNameCha);
     
-    stringCharacteristics *modelNameCha = new stringCharacteristics(charType_modelName, premission_read, 0);
+    stringCharacteristics *modelNameCha = new stringCharacteristics(charType_modelName, permission_read, 0);
     modelNameCha->characteristics::setValue(modelName);
     acc->addCharacteristics(infoService, modelNameCha);
     
-    stringCharacteristics *serialNameCha = new stringCharacteristics(charType_serialNumber, premission_read, 0);
+    stringCharacteristics *serialNameCha = new stringCharacteristics(charType_serialNumber, permission_read, 0);
     serialNameCha->characteristics::setValue(serialNumber);
     acc->addCharacteristics(infoService, serialNameCha);
     
-    boolCharacteristics *identify = new boolCharacteristics(charType_identify, premission_write);
+    boolCharacteristics *identify = new boolCharacteristics(charType_identify, permission_write);
     identify->characteristics::setValue("false");
     identify->valueChangeFunctionCall = identifyCallback;
     acc->addCharacteristics(infoService, identify);

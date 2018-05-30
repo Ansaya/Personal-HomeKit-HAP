@@ -7,7 +7,7 @@
 //
 //
 
-#include <stdio.h>
+#include <cstdio>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <dns_sd.h>
@@ -15,8 +15,6 @@
 #include <string>
 
 #include "Configuration.h"
-
-using namespace std;
 
 #define IPv4 1
 #define IPv6 0
@@ -90,35 +88,51 @@ public:
 class PHKNetworkMessageData {
     PHKNetworkMessageDataRecord records[10];
     unsigned char count = 0;
+
 public:
     PHKNetworkMessageData() {}
+
     PHKNetworkMessageData(const char *rawData, unsigned short len);
+
     PHKNetworkMessageData(const PHKNetworkMessageData &data);
+
     PHKNetworkMessageData &operator=(const PHKNetworkMessageData &);
+
     void rawData(const char **dataPtr, unsigned short *len);
+
     void addRecord(PHKNetworkMessageDataRecord& record);
+
     int recordIndex(unsigned char index);
+
     char *dataPtrForIndex(unsigned char index);
+
     unsigned int lengthForIndex(unsigned char index);
 };
 
 class PHKNetworkMessage {
     char method[5];
     char type[40];
+
 public:
     char directory[20];
     PHKNetworkMessageData data;
+
     PHKNetworkMessage(const char *rawData);
+
     void getBinaryPtr(char **buffer, int *contentLength);
 };
 
 class PHKNetworkResponse {
     unsigned short responseCode;
-    string responseType();
+    std::string responseType();
+
 public:
     PHKNetworkMessageData data;
+
     PHKNetworkResponse(unsigned short _responseCode);
+
     void getBinaryPtr(char **buffer, int *contentLength);
+
 };
 
 void updatePairable();
@@ -132,7 +146,7 @@ public:
     bool relay = false;
 
     char identity[37];
-    string hostname;
+    std::string hostname;
     
     uint8_t controllerToAccessoryKey[32];
     uint8_t accessoryToControllerKey[32];
@@ -158,6 +172,7 @@ public:
             }
         }
     }
+
     bool notify(void *target) {
         for (int i = 0; i < numberOfNotifiableValue; i++) {
             if (notificationList[i] == target) {
@@ -166,12 +181,14 @@ public:
         }
         return false;
     }
+
     void removeNotify(void *target) {
         for (int i = 0; i < numberOfNotifiableValue; i++) {
             if (notificationList[i] == target)
                 notificationList[i] = 0;
         }
     }
+
     void clearNotify() {
         for (int i = 0; i < numberOfNotifiableValue; i++) {
             notificationList[i] = 0;
