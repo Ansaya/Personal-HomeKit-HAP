@@ -297,7 +297,7 @@ void *connectionLoop(void *threadInfo) {
                      * The process of pair-setup
                      */
                     
-                    info->handlePairSeup();
+                    info->handlePairSetup();
                     
                     updateConfiguration();
                 }
@@ -404,7 +404,7 @@ void connectionInfo::Poly1305_GenKey(const unsigned char * key, uint8_t * buf, u
     poly1305_finish(&verifyContext, (unsigned char*)verify);
 }
 
-void connectionInfo::handlePairSeup() {
+void connectionInfo::handlePairSetup() {
     identity[36] = 0;
     PHKNetworkMessageDataRecord stateRecord;
     stateRecord.activate = true;

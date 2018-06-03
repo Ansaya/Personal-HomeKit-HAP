@@ -7,8 +7,9 @@
 //
 
 #include "Accessory.h"
-#include <PHKNetworkIP.h>
-#include <PHKControllerRecord.h>
+
+#include <libHAP.h>
+
 extern "C" {
 //#include "PHKArduinoLightInterface.h"
 #include <poly1305-opt-master/poly1305.h>
@@ -64,15 +65,13 @@ int main(int argc, const char * argv[]) {
 	if (argc > 1) {
 		//If there's some argument
 		//Currently means reset
-		resetControllerRecord();
+		hap::KeyController::getInstance().resetControllerRecord();
 	}
 
 	initAccessorySet();
-	//setupPort();
 
-	PHKNetworkIP networkIP;
 	do {
-		networkIP.handleConnection();
+		hap::net::HAPService::getInstance().handleConnection();
 	} while (true);
 	return 0;
 }

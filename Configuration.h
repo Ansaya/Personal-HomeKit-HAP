@@ -19,13 +19,6 @@
 #define deviceUUID "62F47751-8F26-46BF-9552-8F4238E67D60"   //UUID, for pair verify
 #define controllerRecordsAddress "./PHK_controller" //Where to store the client keys
 
-//Number of client
-/*
- * BEWARE: Never set the number of client to 1
- * iOS HomeKit pair setup socket will not release until the pair verify stage start
- * So you will never got the pair corrected, as it is incomplete (The error require manually reset HomeKit setting
- */
-#define numberOfClient 20
 //Number of notifiable value
 /*
  * Count how many notifiable value exist in your set

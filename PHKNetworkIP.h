@@ -67,7 +67,7 @@ void broadcastMessage(void *sender, char *resultData, size_t resultLen);
 
 class PHKNetworkIP {
     void setupSocket();
-    void handlePairSeup(int subSocket, char *buffer) const;
+    void handlePairSetup(int subSocket, char *buffer) const;
     void handlePairVerify(int subSocket, char *buffer) const;
 public:
     PHKNetworkIP();
@@ -157,7 +157,7 @@ public:
 
     void *notificationList[numberOfNotifiableValue];
 
-    void handlePairSeup();
+    void handlePairSetup();
     void handlePairVerify();
     void handleAccessoryRequest();
 

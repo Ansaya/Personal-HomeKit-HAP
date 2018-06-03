@@ -19,6 +19,18 @@
     <Filter Include="srp">
       <UniqueIdentifier>{634ecdf0-29a0-4d2d-895f-13a7e8213aa1}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Headers">
+      <UniqueIdentifier>{c786bc1d-f0f0-403b-9b4d-f18322333ae6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Sources">
+      <UniqueIdentifier>{bac6691e-1be3-4249-bea3-47b561c1469a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Headers\net">
+      <UniqueIdentifier>{f5e36500-052c-4344-9204-ba5cee3420e3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Sources\net">
+      <UniqueIdentifier>{a2d61076-a0d4-48f1-933a-943677a5a98f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Chacha20\chacha20_simple.c">
@@ -75,6 +87,42 @@
     <ClCompile Include="PHKAccessory.cpp" />
     <ClCompile Include="PHKControllerRecord.cpp" />
     <ClCompile Include="PHKNetworkIP.cpp" />
+    <ClCompile Include="net\ConnectionInfo.cpp">
+      <Filter>Sources\net</Filter>
+    </ClCompile>
+    <ClCompile Include="net\MessageDataRecord.cpp">
+      <Filter>Sources\net</Filter>
+    </ClCompile>
+    <ClCompile Include="net\Message.cpp">
+      <Filter>Sources\net</Filter>
+    </ClCompile>
+    <ClCompile Include="net\MessageData.cpp">
+      <Filter>Sources\net</Filter>
+    </ClCompile>
+    <ClCompile Include="net\Response.cpp">
+      <Filter>Sources\net</Filter>
+    </ClCompile>
+    <ClCompile Include="KeyController.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="net\HAPService.cpp">
+      <Filter>Sources\net</Filter>
+    </ClCompile>
+    <ClCompile Include="Helpers.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Characteristics.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Accessory.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Service.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="AccessorySet.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Chacha20\chacha20_simple.h">
@@ -195,6 +243,71 @@
     <ClInclude Include="PHKAccessory.h" />
     <ClInclude Include="PHKControllerRecord.h" />
     <ClInclude Include="PHKNetworkIP.h" />
+    <ClInclude Include="hapDefines.h" />
+    <ClInclude Include="Characteristics.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="CharType.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Permission.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Unit.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="BoolCharacteristics.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="net\ConnectionInfo.h">
+      <Filter>Headers\net</Filter>
+    </ClInclude>
+    <ClInclude Include="net\MessageDataRecord.h">
+      <Filter>Headers\net</Filter>
+    </ClInclude>
+    <ClInclude Include="net\PairStates.h">
+      <Filter>Headers\net</Filter>
+    </ClInclude>
+    <ClInclude Include="net\Message.h">
+      <Filter>Headers\net</Filter>
+    </ClInclude>
+    <ClInclude Include="net\MessageData.h">
+      <Filter>Headers\net</Filter>
+    </ClInclude>
+    <ClInclude Include="net\Response.h">
+      <Filter>Headers\net</Filter>
+    </ClInclude>
+    <ClInclude Include="KeyController.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="net\HAPService.h">
+      <Filter>Headers\net</Filter>
+    </ClInclude>
+    <ClInclude Include="Helpers.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="IntCharacteristics.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="FloatCharacteristics.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="StringCharacteristics.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Accessory.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Service.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="AccessorySet.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="DeviceType.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="libHAP.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="License" />
