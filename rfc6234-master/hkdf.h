@@ -11,9 +11,18 @@
 
 #include "../Configuration.h"
 
-int hkdf(const unsigned char *salt, int salt_len,
-         const unsigned char *ikm, int ikm_len,
-         const unsigned char *info, int info_len,
-         uint8_t okm[ ], int okm_len);
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+
+
+	int hkdf(const unsigned char *salt, int salt_len,
+		const unsigned char *ikm, int ikm_len,
+		const unsigned char *info, int info_len,
+		uint8_t okm[], int okm_len);
+
+#ifdef __cplusplus
+}
+#endif // __cplusplus
 
 #endif

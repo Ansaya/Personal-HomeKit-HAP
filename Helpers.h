@@ -7,8 +7,6 @@
 
 namespace hap {
 
-	int is_big_endian();
-
 	//Wrap to JSON
 	std::string wrap(const char *str);
 

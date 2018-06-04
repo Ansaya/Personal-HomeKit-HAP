@@ -1,5 +1,9 @@
 #include "../Configuration.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+
 enum {
     shaSuccess = 0,
     shaNull,            /* Null pointer parameter */
@@ -101,3 +105,6 @@ extern int hkdfResult(HKDFContext *context,
                       const unsigned char *info, int info_len,
                       uint8_t okm[SHA_DIGESTSIZE], int okm_len);
 
+#ifdef __cplusplus
+}
+#endif // __cplusplus

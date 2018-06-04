@@ -39,9 +39,11 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'" Label="Configuration">
     <UseDebugLibraries>true</UseDebugLibraries>
+    <RemoteRootDir>~/projects/$(SolutionName)</RemoteRootDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'" Label="Configuration">
     <UseDebugLibraries>false</UseDebugLibraries>
+    <RemoteRootDir>~/projects/$(SolutionName)</RemoteRootDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x86'" Label="Configuration">
     <UseDebugLibraries>true</UseDebugLibraries>
@@ -64,31 +66,21 @@
     <IncludePath>../;$(IncludePath)</IncludePath>
     <MultiProcNumber>4</MultiProcNumber>
     <LibraryPath>$(LibraryPath)</LibraryPath>
-    <RemoteProjectDir>$(RemoteRootDir)/$(SolutionName)/$(ProjectName)</RemoteProjectDir>
+    <RemoteProjectDir>$(RemoteRootDir)/$(ProjectName)</RemoteProjectDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
     <IncludePath>../;$(IncludePath)</IncludePath>
     <MultiProcNumber>4</MultiProcNumber>
     <LibraryPath>$(LibraryPath)</LibraryPath>
-    <RemoteProjectDir>$(RemoteRootDir)/$(SolutionName)/$(ProjectName)</RemoteProjectDir>
+    <RemoteProjectDir>$(RemoteRootDir)/$(ProjectName)</RemoteProjectDir>
   </PropertyGroup>
   <ItemGroup>
-    <ClCompile Include="Accessory.cpp" />
-    <ClCompile Include="Accessory.cpp.old">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
-    </ClCompile>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="PHKArduinoLightInterface.c" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\LibHAP.vcxproj">
       <Project>{3cccc52f-0acc-4e2a-a1c7-7015dd7d612a}</Project>
     </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="Accessory.h" />
-    <ClInclude Include="PHKArduinoLightInterface.h" />
   </ItemGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <ClCompile>

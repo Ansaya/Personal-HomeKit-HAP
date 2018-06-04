@@ -9,7 +9,9 @@ using namespace hap;
 
 KeyController& KeyController::getInstance()
 {
-	return _instance;
+	static KeyController instance;
+
+	return instance;
 }
 
 KeyController::KeyController()
@@ -75,7 +77,7 @@ void KeyController::removeControllerKey(const KeyRecord& record) {
 	}
 }
 
-const KeyRecord& KeyController::getControllerKey(char key[32]) const {
+const KeyRecord KeyController::getControllerKey(char key[32]) const {
 	for (auto& it : _records) {
 		if (bcmp(key, it.controllerID, 32) == 0) return it;
 	}

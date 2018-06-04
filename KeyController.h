@@ -15,8 +15,6 @@ class KeyController {
 public:
 	static KeyController &getInstance();
 
-	KeyController(const KeyController& copy) = delete;
-
 	void resetControllerRecord();
 
 	bool hasController() const;
@@ -27,15 +25,15 @@ public:
 
 	void removeControllerKey(const KeyRecord& record);
 
-	const KeyRecord& getControllerKey(char key[32]) const;
+	const KeyRecord getControllerKey(char key[32]) const;
 
 
 private:
-	static KeyController _instance;
-
 	std::vector<KeyRecord> _records;
 
 	KeyController();
+	KeyController(const KeyController&) = delete;
+	void operator=(const KeyController&) = delete;
 
 };
 

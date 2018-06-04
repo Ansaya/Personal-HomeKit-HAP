@@ -25,7 +25,7 @@ namespace net {
 	class HAPService {
 
 	public:
-		static HAPService & getInstance();
+		static HAPService &getInstance();
 
 		~HAPService();
 
@@ -36,9 +36,7 @@ namespace net {
 		void announce(BroadcastInfo* info);
 
 	private:
-		static HAPService* _instance;
-
-		std::atomic<bool> _setup;
+		bool _setup;
 		hap::deviceType _type;
 		int _socket;
 		DNSServiceRef _netService;
@@ -46,11 +44,11 @@ namespace net {
 		int _currentConfiguration = 1;
 
 		std::list<ConnectionInfo*> _connections;
-		std::thread _keepAlive;
+		std::thread* _keepAlive;
 
 		HAPService();
-
-		void setupSocket();
+		HAPService(const HAPService&) = delete;
+		void operator=(const HAPService&) = delete;
 
 		//void handlePairSetup(int subSocket, char *buffer) const;
 

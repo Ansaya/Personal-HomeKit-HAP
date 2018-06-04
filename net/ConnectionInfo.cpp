@@ -81,9 +81,10 @@ void ConnectionInfo::handlePairSetup() {
         *stateRecord.data = (char)state+1;
         switch (state) {
             case State_M1_SRPStartRequest: {
-#if HomeKitLog == 1
-                printf("%s, %d: State_M1_SRPStartRequest\n", __func__, __LINE__);
+#ifdef HAP_DEBUG
+				printf("ConnectionInfo::handlePairSetup : State_M1_SRPStartRequest\n");
 #endif
+
                 MessageDataRecord saltRec;
                 MessageDataRecord publicKeyRec;
                 unsigned char saltChar[16];
@@ -115,8 +116,8 @@ void ConnectionInfo::handlePairSetup() {
             }
                 break;
             case State_M3_SRPVerifyRequest: {
-#if HomeKitLog == 1
-                printf("%s, %d: State_M3_SRPVerifyRequest\n", __func__, __LINE__);
+#ifdef HAP_DEBUG
+				printf("ConnectionInfo::handlePairSetup : State_M3_SRPVerifyRequest\n");
 #endif
                 const char *keyStr = 0;
                 int keyLen = 0;
@@ -141,8 +142,9 @@ void ConnectionInfo::handlePairSetup() {
                     responseRecord.index = 7;
                     responseRecord.length = 1;
                     mResponse.data.addRecord(responseRecord);
-#if HomeKitLog == 1
-                    printf("Oops at M3\n");
+
+#ifdef HAP_DEBUG
+					printf("ConnectionInfo::handlePairSetup : error at M3.\n");
 #endif
                 } else {
                     SRP_respond(srp, &response);
@@ -153,8 +155,8 @@ void ConnectionInfo::handlePairSetup() {
                     responseRecord.data = new char[responseRecord.length];
                     bcopy(response->data, responseRecord.data, responseRecord.length);
                     mResponse.data.addRecord(responseRecord);
-#if HomeKitLog == 1
-                    printf("Password Correct\n");
+#ifdef HAP_DEBUG
+					printf("ConnectionInfo::handlePairSetup : password correct.\n");
 #endif
                 }
                 
@@ -165,8 +167,8 @@ void ConnectionInfo::handlePairSetup() {
             }
                 break;
             case State_M5_ExchangeRequest: {
-#if HomeKitLog == 1
-                printf("%s, %d: State_M5_ExchangeRequest\n", __func__, __LINE__);
+#ifdef HAP_DEBUG
+				printf("ConnectionInfo::handlePairSetup : State_M5_ExchangeRequest\n");
 #endif
                 
                 const char *encryptedPackage = NULL;int packageLen = 0;
@@ -200,22 +202,22 @@ void ConnectionInfo::handlePairSetup() {
                     responseRecord.length = 1;
                     mResponse.data.addRecord(responseRecord);
                     
-#if HomeKitLog == 1
+#ifdef HAP_DEBUG
+					printf("ConnectionInfo::handlePairSetup : corrupt TLv8 at M5\n");
+
                     for(int j = 0; j < packageLen-16; j++)
                         printf("%X ", decryptedData[j]);
                     printf("\n");
                     
-                    printf("verify: ");
+                    printf("\tverify: ");
                     for(int j = 0; j < 16; j++)
                         printf("%X ", verify[j]);
                     printf("\n");
                     
-                    printf("mac: ");
+                    printf("\tmac: ");
                     for(int j = 0; j < 16; j++)
                         printf("%X ", mac[j]);
                     printf("\n");
-                    
-                    printf("Corrupt TLv8 at M5\n");
 #endif
                 } else {
                     /*
@@ -249,7 +251,11 @@ void ConnectionInfo::handlePairSetup() {
                         
                         {
                             MessageDataRecord usernameRecord;
-                            usernameRecord.activate = true; usernameRecord.index = 1;    usernameRecord.length = strlen(deviceIdentity); usernameRecord.data = new char[usernameRecord.length]; bcopy(deviceIdentity, usernameRecord.data, usernameRecord.length);
+                            usernameRecord.activate = true;
+							usernameRecord.index = 1;
+							usernameRecord.length = strlen(deviceIdentity);
+							usernameRecord.data = new char[usernameRecord.length];
+							bcopy(deviceIdentity, usernameRecord.data, usernameRecord.length);
                             returnTLV8->addRecord(usernameRecord);
                         }
                         
@@ -273,7 +279,10 @@ void ConnectionInfo::handlePairSetup() {
                             bcopy(edPubKey, &output[32+strlen(deviceIdentity)], 32);
                             ed25519_sign(output, 64+strlen(deviceIdentity), (const unsigned char*)edSecret, (const unsigned char*)edPubKey, (unsigned char *)signature);
                             MessageDataRecord signatureRecord;
-                            signatureRecord.activate = true; signatureRecord.data = signature;   signatureRecord.index = 10;    signatureRecord.length = 64;
+                            signatureRecord.activate = true;
+							signatureRecord.data = signature;
+							signatureRecord.index = 10;
+							signatureRecord.length = 64;
                             returnTLV8->addRecord(signatureRecord);
                             
                             MessageDataRecord publicKeyRecord;
@@ -289,24 +298,25 @@ void ConnectionInfo::handlePairSetup() {
                         returnTLV8->rawData(&tlv8Data, &tlv8Len);
                         
                         MessageDataRecord tlv8Record;
-                        tlv8Record.data = new char[tlv8Len+16];tlv8Record.length = tlv8Len+16;
+                        tlv8Record.data = new char[tlv8Len+16];
+						tlv8Record.length = tlv8Len+16;
                         bzero(tlv8Record.data, tlv8Record.length);
                         {
-                            
                             chacha20_ctx ctx;   bzero(&ctx, sizeof(ctx));
-                            
+
                             chacha20_setup(&ctx, (const uint8_t *)sessionKey, 32, (uint8_t *)"PS-Msg06");
                             char buffer[64], key[64];   bzero(buffer, 64);
                             chacha20_encrypt(&ctx, (const uint8_t *)buffer, (uint8_t *)key, 64);
                             chacha20_encrypt(&ctx, (const uint8_t *)tlv8Data, (uint8_t *)tlv8Record.data, tlv8Len);
-                            
+
                             char verify[16];
                             memset(verify, 0, 16);
                             Poly1305_GenKey((const unsigned char *)key, (unsigned char*)tlv8Record.data, tlv8Len, false, verify);
                             memcpy((unsigned char *)&tlv8Record.data[tlv8Len], verify, 16);
                         }
                         
-                        tlv8Record.activate = true; tlv8Record.index = 5;
+                        tlv8Record.activate = true;
+						tlv8Record.index = 5;
                         mResponse.data.addRecord(tlv8Record);
                         
                         delete returnTLV8;
@@ -330,17 +340,19 @@ void ConnectionInfo::handlePairSetup() {
         mResponse.data.addRecord(stateRecord);
         mResponse.getBinaryPtr(&responseBuffer, &responseLen);
         if (responseBuffer) {
-#if HomeKitLog == 1
-            printf("%s, %d, responseBuffer = %s, responseLen = %d\n", __func__, __LINE__, responseBuffer, responseLen);
+#ifdef HAP_DEBUG
+			printf("ConnectionInfo::handlePairSetup : responseBuffer = %s, responseLen = %d\n", responseBuffer, responseLen);
 #endif
+
             int len = write(subSocket, (const void *)responseBuffer, (size_t)responseLen);
             delete [] responseBuffer;
-#if HomeKitLog == 1
-            printf("Pair Setup Transfered length %d\n", len);
+
+#ifdef HAP_DEBUG
+			printf("ConnectionInfo::handlePairSetup : pair setup transfered length %d\n", len);
 #endif
         } else {
-#if HomeKitLog == 1
-            printf("Why empty response\n");
+#ifdef HAP_DEBUG
+			printf("ConnectionInfo::handlePairSetup : error : empty response.\n");
 #endif
         }
         
@@ -358,8 +370,9 @@ void ConnectionInfo::handlePairVerify() {
     curved25519_key sharedKey;
     
     uint8_t enKey[32];
-#if HomeKitLog == 1
-    printf("Start Pair Verify\n");
+
+#ifdef HAP_DEBUG
+	printf("ConnectionInfo::handlePairVerify : start pair verify.\n");
 #endif
     
     do {
@@ -368,9 +381,10 @@ void ConnectionInfo::handlePairVerify() {
         bcopy(msg.data.dataPtrForIndex(6), &state, 1);
         switch (state) {
             case State_Pair_Verify_M1: {
-#if HomeKitLog == 1
-                printf("Pair Verify M1\n");
+#ifdef HAP_DEBUG
+				printf("ConnectionInfo::handlePairVerify : M1\n");
 #endif
+
                 bcopy(msg.data.dataPtrForIndex(3), controllerPublicKey, 32);
                 for (short i = 0; i < sizeof(secretKey); i++) {
                     secretKey[i] = rand();
@@ -385,7 +399,10 @@ void ConnectionInfo::handlePairVerify() {
                 bcopy(controllerPublicKey, &temp[32+strlen(deviceIdentity)], 32);
                 
                 MessageDataRecord signRecord;
-                signRecord.activate = true; signRecord.data = new char[64]; signRecord.index = 10;  signRecord.length = 64;
+                signRecord.activate = true;
+				signRecord.data = new char[64];
+				signRecord.index = 10;
+				signRecord.length = 64;
                 
                 ed25519_secret_key edSecret;
                 bcopy(accessorySecretKey, edSecret, sizeof(edSecret));
@@ -451,8 +468,8 @@ void ConnectionInfo::handlePairVerify() {
             }
                 break;
             case State_Pair_Verify_M3: {
-#if HomeKitLog == 1
-                printf("Pair Verify M3\n");
+#ifdef HAP_DEBUG
+				printf("ConnectionInfo::handlePairVerify : M3\n");
 #endif
                 char *encryptedData = msg.data.dataPtrForIndex(5);
                 short packageLen = msg.data.lengthForIndex(5);
@@ -488,10 +505,10 @@ void ConnectionInfo::handlePairVerify() {
                         
                         hkdf((uint8_t *)"Control-Salt", 12, sharedKey, 32, (uint8_t *)"Control-Read-Encryption-Key", 27, accessoryToControllerKey, 32);
                         hkdf((uint8_t *)"Control-Salt", 12, sharedKey, 32, (uint8_t *)"Control-Write-Encryption-Key", 28, controllerToAccessoryKey, 32);
-#if HomeKitLog == 1
-                        printf("Verify success\n");
+
+#ifdef HAP_DEBUG
+						printf("ConnectionInfo::handlePairVerify : pair verified succesfully.\n");
 #endif
-                        
                     } else {
                         MessageDataRecord error;
                         error.activate = true;
@@ -500,8 +517,9 @@ void ConnectionInfo::handlePairVerify() {
                         error.index = 7;
                         error.length = 1;
                         response.data.addRecord(error);
-#if HomeKitLog == 1
-                        printf("Verify failed\n");
+
+#ifdef HAP_DEBUG
+						printf("ConnectionInfo::handlePairVerify : pair verification failed.\n");
 #endif
                     }
                     
@@ -537,8 +555,8 @@ void ConnectionInfo::handleAccessoryRequest() {
     
     int len;
     
-#if HomeKitLog == 1
-    printf("Successfully Connect\n");
+#ifdef HAP_DEBUG
+	printf("ConnectionInfo::handleAccessoryRequest : connection up.\n");
 #endif
     
     numberOfMsgRec = 0;
@@ -560,17 +578,12 @@ void ConnectionInfo::handleAccessoryRequest() {
             
             chacha20_ctx chacha20;    bzero(&chacha20, sizeof(chacha20));
             
-#if HomeKitLog == 1
-            printf("send: %llx\n", numberOfMsgRec);
+#ifdef HAP_DEBUG
+			printf("ConnectionInfo::handleAccessoryRequest : send : %llx\n", numberOfMsgRec);
 #endif
-            if (!is_big_endian()) numberOfMsgRec = bswap_64(numberOfMsgRec);
-#if HomeKitLog == 1
-            printf("send: %llx\n", numberOfMsgRec);
-#endif
+
             chacha20_setup(&chacha20, (const uint8_t *)controllerToAccessoryKey, 32, (uint8_t *)&numberOfMsgRec);
-            if (!is_big_endian()) numberOfMsgRec = bswap_64(numberOfMsgRec);
             numberOfMsgRec++;
-            printf("send: %llx\n", numberOfMsgRec);
             
             char temp[64];  bzero(temp, 64); char temp2[64];  bzero(temp2, 64);
             chacha20_encrypt(&chacha20, (const uint8_t*)temp, (uint8_t *)temp2, 64);
@@ -582,35 +595,37 @@ void ConnectionInfo::handleAccessoryRequest() {
             bzero(decryptData, 2048);
             chacha20_encrypt(&chacha20, (const uint8_t *)&buffer[2], (uint8_t *)decryptData, msgLen);
             
-#if HomeKitReplyHeaderLog == 1
-            printf("Request: %s\nPacketLen: %d\n, MessageLen: %d\n", decryptData, len, strlen(decryptData));
+#ifdef HAP_DEBUG
+			printf("ConnectionInfo::handleAccessoryRequest : request: %s\n"
+				"\tpacket length: %d\n"
+				"\tmessage length: %d\n",
+				decryptData, len, strlen(decryptData));
 #endif
             
             if(len >= (2 + msgLen + 16)
                && memcmp((void *)verify, (void *)&buffer[2 + msgLen], 16) == 0) {
-#if HomeKitLog == 1
-                printf("Verify successfully!\n");
+#ifdef HAP_DEBUG
+				printf("ConnectionInfo::handleAccessoryRequest : data verified succesfully.\n");
 #endif
             }
             else {
                 
-#if HomeKitLog == 1
-                printf("Passed-in data is no-verified!\n");
+#ifdef HAP_DEBUG
+                printf("ConnectionInfo::handleAccessoryRequest : passed-in data is not verified!\n\t");
                 for (int i = 0; i < 16; i++)
                     printf("%ud ", verify[i]);
-                printf("\n");
+                printf("\n\t");
                 for (int i = 0; i < 16; i++)
                     printf("%ud ", buffer[2 + msgLen+i]);
-                printf("\n");
-                
+                printf("\n\t");
+
                 unsigned long long numberOfMsgRec_ = numberOfMsgRec-1;
                 chacha20_setup(&chacha20, (const uint8_t *)controllerToAccessoryKey, 32, (uint8_t *)&numberOfMsgRec_);
                 chacha20_encrypt(&chacha20, (const uint8_t*)temp, (uint8_t *)temp2, 64);
-                Poly1305_GenKey((const unsigned char *)temp, (uint8_t *)buffer, msgLen, Type_Data_With_Length, verify);
+                Poly1305_GenKey((const unsigned char *)temp, (uint8_t *)buffer, msgLen, true, verify);
                 for (int i = 0; i < 16; i++)
                     printf("%ud ", verify[i]);
-                printf("\n");
-                
+                printf("\n"); 
 #endif
                 continue;
             }
@@ -624,9 +639,7 @@ void ConnectionInfo::handleAccessoryRequest() {
             reply[0] = resultLen%256;
             reply[1] = (resultLen-(uint8_t)reply[0])/256;
             
-            if (!is_big_endian()) numberOfMsgSend = bswap_64(numberOfMsgSend);
             chacha20_setup(&chacha20, (const uint8_t *)accessoryToControllerKey, 32, (uint8_t *)&numberOfMsgSend);
-            if (!is_big_endian()) numberOfMsgSend = bswap_64(numberOfMsgSend);
             numberOfMsgSend++;
 
             chacha20_encrypt(&chacha20, (const uint8_t*)temp, (uint8_t *)temp2, 64);
@@ -704,7 +717,9 @@ void ConnectionInfo::addNotify(void *target, int aid, int iid)
 	for (int i = 0; i < numberOfNotifiableValue; i++) {
 		if (notificationList[i] == 0) {
 			notificationList[i] = target;
-			printf("Add notify %s to %d.%d\n", identity, aid, iid);
+#ifdef HAP_DEBUG
+			printf("ConnectionInfo::addNotify : add notify %s to %d.%d.\n", identity, aid, iid);
+#endif
             return;
         }
 	}

@@ -16,6 +16,6 @@ void Characteristics::notify()
 	info->sender = this;
 	info->desc = broadcastTemp;
 
-	std::thread t(&net::HAPService::announce, net::HAPService::getInstance(), info);
+	std::thread t(&net::HAPService::announce, &net::HAPService::getInstance(), info);
 	t.detach();
 }

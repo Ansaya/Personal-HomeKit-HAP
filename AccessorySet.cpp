@@ -4,6 +4,10 @@
 
 using namespace hap;
 
+AccessorySet::AccessorySet()
+{
+}
+
 AccessorySet& AccessorySet::getInstance() {
 	static AccessorySet instance;
 

@@ -70,12 +70,12 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <MultiProcNumber>4</MultiProcNumber>
     <TargetName>libhap</TargetName>
-    <RemoteCCompileToolExe>gcc</RemoteCCompileToolExe>
+    <RemoteCCompileToolExe>g++</RemoteCCompileToolExe>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
     <MultiProcNumber>4</MultiProcNumber>
     <TargetName>libhap</TargetName>
-    <RemoteCCompileToolExe>gcc</RemoteCCompileToolExe>
+    <RemoteCCompileToolExe>g++</RemoteCCompileToolExe>
   </PropertyGroup>
   <ItemGroup>
     <ClCompile Include="Accessory.cpp" />
@@ -214,6 +214,12 @@
     <ClCompile>
       <ExceptionHandling>Disabled</ExceptionHandling>
     </ClCompile>
+    <RemotePostBuildEvent>
+      <Command>sudo rm -f /usr/lib/$(TargetFileName); sudo ln -s $(RemoteOutDir)$(TargetFileName) /usr/lib/$(TargetFileName)</Command>
+    </RemotePostBuildEvent>
+    <RemotePostBuildEvent>
+      <Message>Create global library link</Message>
+    </RemotePostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
     <Link>
@@ -223,6 +229,12 @@
     <ClCompile>
       <ExceptionHandling>Disabled</ExceptionHandling>
     </ClCompile>
+    <RemotePostBuildEvent>
+      <Command>sudo rm -f /usr/lib/$(TargetFileName); sudo ln -s $(RemoteOutDir)$(TargetFileName) /usr/lib/$(TargetFileName)</Command>
+    </RemotePostBuildEvent>
+    <RemotePostBuildEvent>
+      <Message>Create global library link</Message>
+    </RemotePostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

@@ -26,14 +26,12 @@ static const char pairingTlv8Type[] = "application/pairing+tlv8";
 
 HAPService& HAPService::getInstance()
 {
-	if (_instance == nullptr)
-		_instance = new HAPService();
+	static HAPService instance;
 
-	return *_instance;
+	return instance;
 }
 
-HAPService::HAPService() {
-	_setup = false;
+HAPService::HAPService() : _setup(false) {
 }
 
 HAPService::~HAPService() {
@@ -45,47 +43,52 @@ void HAPService::setup(deviceType type)
 {
 	_type = type;
 
-	setupSocket();
-
-	_setup = true;
-}
-
-void HAPService::setupSocket()
-{
 	SRP_initialize_library();
 	srand((unsigned int)time(NULL));
 
-	_keepAlive = std::thread(&HAPService::keepAliveLoop, this);
+	_keepAlive = new std::thread(&HAPService::keepAliveLoop, this);
 
 	TXTRecordRef txtRecord = buildTXTRecord();
 
 	// Socket setup
 	_socket = socket(PF_INET, SOCK_STREAM, 0);
-	sockaddr_in addr;   
+	sockaddr_in addr;
 	bzero(&addr, sizeof(addr));
 	addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	addr.sin_family = PF_INET;
 	addr.sin_port = htons(0);
 
-	int optval = 1;	socklen_t optlen = sizeof(optval);
+	int optval = 1;	
+	socklen_t optlen = sizeof(optval);
 	setsockopt(_socket, SOL_SOCKET, SO_KEEPALIVE, &optval, optlen);
 
 	bind(_socket, (const struct sockaddr *)&addr, sizeof(addr));
-	listen(_socket, HAPServiceMaximumConnections);
+	listen(_socket, (unsigned int)HAPServiceMaximumConnections);
 
 	// Get listening port
 	sockaddr_in address;
 	socklen_t len = sizeof(address);
 	getsockname(_socket, (struct sockaddr *)&address, &len);
-	unsigned short portNumber = ntohs(address.sin_port);
 
 	DNSServiceRegister(&_netService, 0, 0, deviceName, HAPServiceType, "", NULL,
-		htons(portNumber), TXTRecordGetLength(&txtRecord), TXTRecordGetBytesPtr(&txtRecord), NULL, NULL);
+		htons(ntohs(address.sin_port)), TXTRecordGetLength(&txtRecord), 
+		TXTRecordGetBytesPtr(&txtRecord), NULL, NULL);
 
 	TXTRecordDeallocate(&txtRecord);
+
+	_setup = true;
+
+#ifdef HAP_DEBUG
+	printf("HAPService::setup : hap service setup completed.\n");
+#endif // HAP_DEBUG
 }
 
 void HAPService::handleConnection() {
+	if (!_setup) {
+		printf("HAPService::handleConnection : please call HAPService::setup before!\n");
+		return;
+	}
+
 	struct sockaddr_in client_addr; 
 	socklen_t clen;
 
@@ -94,8 +97,8 @@ void HAPService::handleConnection() {
 	//Before anything start, get sniff the host name of the client
 	std::string socketName = "";
 	if (clen == sizeof(struct sockaddr_in)) {
-		char buffer[1024];
-		int res = getnameinfo((struct sockaddr *)&client_addr, clen, buffer, 1024, NULL, 0, NI_NOFQDN);
+		char buffer[128];
+		int res = getnameinfo((struct sockaddr *)&client_addr, clen, buffer, sizeof(buffer), NULL, 0, NI_NOFQDN);
 		socketName = std::string(buffer);
 	}
 
@@ -105,9 +108,13 @@ void HAPService::handleConnection() {
 
 	_connections.push_back(newConn);
 
+#ifdef HAP_DEBUG
+	printf("HAPService::handleConnection : New client connected: \"%d\"  %s\n", subSocket, socketName.c_str());
+#endif // HAP_DEBUG
+
+
 	newConn->thread = std::thread(&HAPService::connectionLoop, this, newConn);
 	newConn->thread.detach();
-
 }
 
 void HAPService::announce(BroadcastInfo *info) {
@@ -116,10 +123,18 @@ void HAPService::announce(BroadcastInfo *info) {
 	char *desc = info->desc;
 
 	char reply[1024];
-	int len = snprintf(reply, 1024, "EVENT/1.0 200 OK\r\nContent-Type: application/hap+json\r\nContent-Length: %lu\r\n\r\n%s", strlen(desc), desc);
+	int len = snprintf(reply, 1024, 
+		"EVENT/1.0 200 OK\r\n"
+		"Content-Type: %s\r\n"
+		"Content-Length: %lu\r\n"
+		"\r\n"
+		"%s",
+		hapJsonType,
+		strlen(desc), 
+		desc);
 
-#if HomeKitLog == 1 && HomeKitReplyHeaderLog==1
-	printf("%s\n", reply);
+#ifdef HAP_DEBUG
+	printf("Announce message:\n%s\n", reply);
 #endif
 
 	broadcastMessage(sender, reply, len);
@@ -135,23 +150,27 @@ void HAPService::broadcastMessage(void *sender, char *resultData, size_t resultL
 
 		int socketNumber = conn->subSocket;
 
-		if (socketNumber >= 0 && conn->connected && conn->numberOfMsgSend >= 0 && (conn->notify(sender) || sender == NULL)) {
+		if (socketNumber >= 0 && conn->connected && conn->numberOfMsgSend >= 0 && (conn->notify(sender) || sender == nullptr)) {
 
-#if HomeKitLog == 1
-			printf("Broadcast with sender a %d message to client %d\n", resultLen, socketNumber);
+#ifdef HAP_DEBUG
+			printf("HAPService::broadcastMessage : sending %d byte message to client %d\n", resultLen, socketNumber);
 #endif
 			std::unique_lock<std::mutex> lock(conn->mutex);
 
-			chacha20_ctx chacha20;    bzero(&chacha20, sizeof(chacha20));
+			chacha20_ctx chacha20;
+			bzero(&chacha20, sizeof(chacha20));
 
-			char temp[64];  bzero(temp, 64); char temp2[64];  bzero(temp2, 64);
+			char temp[64];
+			bzero(temp, 64);
+			char temp2[64];
+			bzero(temp2, 64);
 
 			unsigned char *reply = new unsigned char[resultLen + 18];
 			reply[0] = resultLen % 256;
 			reply[1] = (resultLen - (uint8_t)reply[0]) / 256;
 
 			unsigned long long numberOfMsgSend = conn->numberOfMsgSend;
-			if (!is_big_endian()) numberOfMsgSend = bswap_64(conn->numberOfMsgSend);
+
 			chacha20_setup(&chacha20, (const uint8_t *)conn->accessoryToControllerKey, 32, (uint8_t *)&numberOfMsgSend);
 			conn->numberOfMsgSend++;
 
@@ -171,9 +190,11 @@ void HAPService::broadcastMessage(void *sender, char *resultData, size_t resultL
 
 void HAPService::keepAliveLoop() 
 {
-	//For every 10 seconds, this thread will wake, and send a keep alive message
 	while (true) {
-		printf("Keep Alive");
+#ifdef HAP_DEBUG
+		printf("HAPService::keepAliveLoop : keep alive.\n");
+#endif // HAP_DEBUG
+
 		BroadcastInfo *alivePackage = new BroadcastInfo;
 		alivePackage->sender = nullptr;
 		char *aliveMsg = new char[32];
@@ -189,61 +210,61 @@ void HAPService::connectionLoop(ConnectionInfo* info)
 	int subSocket = info->subSocket;    
 	ssize_t len;
 	
-	if (subSocket >= 0) {
-#if HomeKitLog == 1
-		printf("Start Connect: %d\n", subSocket);
+	if (subSocket < 0) return;
+
+#ifdef HAP_DEBUG
+	printf("HAPService::connectionLoop : new client %d.\n", subSocket);
 #endif
 
-		do {
-			len = read(subSocket, info->buffer, 4096);
-#if HomeKitLog == 1
-			printf("Return len %d for socket %d\n", len, subSocket);
+	do {
+		len = read(subSocket, info->buffer, 4096);
+#ifdef HAP_DEBUG
+		printf("HAPService::connectionLoop : received %d bytes from socket %d.\n"
+			"%s\n", len, subSocket, info->buffer);
 #endif
 
-#if HomeKitReplyHeaderLog == 1
-			printf("Message: %s\n", info->buffer);
+		Message msg(info->buffer);
+		if (len > 0) {
+			if (!strcmp(msg.directory, "pair-setup")) {
+
+#ifdef HAP_DEBUG
+				printf("HAPService::connectionLoop : pair setup required for socket %d.\n", subSocket);
 #endif
 
-			Message msg(info->buffer);
-			if (len > 0) {
-				if (!strcmp(msg.directory, "pair-setup")) {
+				info->handlePairSetup();
 
-					/*
-					* The process of pair-setup
-					*/
-
-					info->handlePairSetup();
-
-					// Update configuration
-					_currentConfiguration++;
-					TXTRecordRef txtRecord = buildTXTRecord();
-					DNSServiceUpdateRecord(_netService, NULL, 0, TXTRecordGetLength(&txtRecord), TXTRecordGetBytesPtr(&txtRecord), 0);
-					TXTRecordDeallocate(&txtRecord);
-				}
-				else if (!strcmp(msg.directory, "pair-verify")) {
-					info->handlePairVerify();
-					//When pair-verify done, we handle Accessory Request
-					info->handleAccessoryRequest();
-				}
-				else if (!strcmp(msg.directory, "identify")) {
-					close(subSocket);
-				}
+				// Update configuration
+				_currentConfiguration++;
+				TXTRecordRef txtRecord = buildTXTRecord();
+				DNSServiceUpdateRecord(_netService, NULL, 0, TXTRecordGetLength(&txtRecord), TXTRecordGetBytesPtr(&txtRecord), 0);
+				TXTRecordDeallocate(&txtRecord);
 			}
+			else if (!strcmp(msg.directory, "pair-verify")) {
+#ifdef HAP_DEBUG
+					printf("HAPService::connectionLoop : pair verify required for socket %d.\n", subSocket);
+#endif
+				info->handlePairVerify();
 
-		} while (len > 0);
+				//When pair-verify done, we handle Accessory Request
+				info->handleAccessoryRequest();
+			}
+			else if (!strcmp(msg.directory, "identify")) {
+				close(subSocket);
+			}
+		}
 
-		close(subSocket);
-#if HomeKitLog == 1
-		printf("Stop Connect: %d\n", subSocket);
+	} while (len > 0);
+
+	close(subSocket);
+#ifdef HAP_DEBUG
+	printf("HAPService::connectionLoop : %d client disconnected.\n", subSocket);
 #endif
 
-		info->subSocket = -1;
+	info->subSocket = -1;
 
-		std::remove_if(_connections.begin(), _connections.end(), [info](const ConnectionInfo* &connInfo) {
-			return connInfo == info;
-		});
-
-	}
+	std::remove_if(_connections.begin(), _connections.end(), [info](const ConnectionInfo* connInfo) {
+		return connInfo == info;
+	});
 }
 
 void HAPService::updatePairable() {
@@ -272,9 +293,10 @@ TXTRecordRef HAPService::buildTXTRecord() {
 }
 
 void HAPService::handleAccessory(const char *request, unsigned int requestLen, char **reply, unsigned int *replyLen, ConnectionInfo *sender) {
-#if HomeKitLog == 1
-	printf("Receive request: %s\n", request);
+#ifdef HAP_DEBUG
+	printf("HAPService::handleAccessory : received request: %s\n", request);
 #endif
+
 	int index = 5;
 	char method[5];
 	{
@@ -289,14 +311,17 @@ void HAPService::handleAccessory(const char *request, unsigned int requestLen, c
 
 	char path[1024];
 	int i;
+	// TODO: use requestLen 
 	for (i = 0; i < 1024 && request[index] != ' '; i++, index++) {
 		path[i] = request[index];
 	}
 	path[i] = 0;
-#if HomeKitLog == 1
-	printf("Path: %s\n", path);
+
+#ifdef HAP_DEBUG
+	printf("HAPService::handleAccessory : path: %s\n", path);
 #endif
 
+	// TODO: fix this shit
 	const char *dataPtr = request;
 	while (true) {
 		dataPtr = &dataPtr[1];
@@ -305,7 +330,8 @@ void HAPService::handleAccessory(const char *request, unsigned int requestLen, c
 
 	dataPtr += 4;
 
-	char *replyData = NULL;  unsigned short replyDataLen = 0;
+	char *replyData = nullptr;  
+	unsigned short replyDataLen = 0;
 
 	int statusCode = 0;
 
@@ -314,8 +340,8 @@ void HAPService::handleAccessory(const char *request, unsigned int requestLen, c
 
 	if (strcmp(path, "/accessories") == 0) {
 		//Publish the characterists of the accessories
-#if HomeKitLog == 1
-		printf("Ask for accessories info\n");
+#ifdef HAP_DEBUG
+		printf("HAPService::handleAccessory : accessories info requested.\n");
 #endif
 		statusCode = 200;
 		std::string desc = AccessorySet::getInstance().describe(sender);
@@ -325,15 +351,18 @@ void HAPService::handleAccessory(const char *request, unsigned int requestLen, c
 		replyData[replyDataLen] = 0;
 	}
 	else if (strcmp(path, "/pairings") == 0) {
+
 		Message msg(request);
 		statusCode = 200;
-#if HomeKitLog == 1
-		printf("%d\n", *msg.data.dataPtrForIndex(0));
+#ifdef HAP_DEBUG
+		printf("HAPService::handleAccessory : pairings : %d\n", *msg.data.dataPtrForIndex(0));
 #endif
 		if (*msg.data.dataPtrForIndex(0) == 3) {
 			//Pairing with new user
 
-			printf("Add new user\n");
+#ifdef HAP_DEBUG
+			printf("HAPService::handleAccessory : new user pairing\n");
+#endif
 
 			KeyRecord controllerRec;
 			bcopy(msg.data.dataPtrForIndex(3), controllerRec.publicKey, 32);
@@ -352,7 +381,9 @@ void HAPService::handleAccessory(const char *request, unsigned int requestLen, c
 		}
 		else {
 
-			printf("Delete user");
+#ifdef HAP_DEBUG
+			printf("HAPService::handleAccessory : delete user pairing.\n");
+#endif
 
 			KeyRecord controllerRec;
 			bcopy(msg.data.dataPtrForIndex(1), controllerRec.controllerID, 36);
@@ -374,16 +405,21 @@ void HAPService::handleAccessory(const char *request, unsigned int requestLen, c
 	else if (strncmp(path, "/characteristics", 16) == 0) {
 		std::unique_lock<std::mutex> lock(AccessorySet::getInstance().accessoryMutex);
 
-		printf("Characteristics\n");
+#ifdef HAP_DEBUG
+		printf("HAPService::handleAccessory : characteristics info requested.\n");
+#endif
+
 		if (strncmp(method, "GET", 3) == 0) {
 			//Read characteristics
-			int aid = 0;    int iid = 0;
+			int aid = 0;
+			int iid = 0;
 
 			char indexBuffer[1000];
 			sscanf(path, "/characteristics?id=%[^\n]", indexBuffer);
 
-
-			printf("Get characteristics %s with len %d\n", indexBuffer, strlen(indexBuffer));
+#ifdef HAP_DEBUG
+			printf("HAPService::handleAccessory : characteristics : get %s\n", indexBuffer);
+#endif
 
 			statusCode = 404;
 
@@ -391,26 +427,36 @@ void HAPService::handleAccessory(const char *request, unsigned int requestLen, c
 
 			while (strlen(indexBuffer) > 0) {
 
-				printf("Get characteristics %s with len %d\n", indexBuffer, strlen(indexBuffer));
+#ifdef HAP_DEBUG
+				printf("HAPService::handleAccessory : characteristics : get %s\n", indexBuffer);
+#endif
 
 				char temp[1000];
 				//Initial the temp
 				temp[0] = 0;
 				sscanf(indexBuffer, "%d.%d%[^\n]", &aid, &iid, temp);
-				printf("Get temp %s with len %d\n", temp, strlen(temp));
+
+#ifdef HAP_DEBUG
+				printf("HAPService::handleAccessory : characteristics : get temp %s\n", temp);
+#endif
+
 				strncpy(indexBuffer, temp, 1000);
-				printf("Get characteristics %s with len %d\n", indexBuffer, strlen(indexBuffer));
+
+#ifdef HAP_DEBUG
+				printf("HAPService::handleAccessory : characteristics : get %s\n");
+#endif
+
 				//Trim comma
 				if (indexBuffer[0] == ',') {
 					indexBuffer[0] = '0';
 				}
 
 				Accessory *a = AccessorySet::getInstance().accessoryAtIndex(aid);
-				if (a != NULL) {
+				if (a != nullptr) {
 					Characteristics *c = a->characteristicsAtIndex(iid);
-					if (c != NULL) {
-#if HomeKitLog == 1
-						printf("Ask for one characteristics: %d . %d\n", aid, iid);
+					if (c != nullptr) {
+#ifdef HAP_DEBUG
+						printf("HAPService::handleAccessory : characteristics : get %d . %d\n", aid, iid);
 #endif
 
 						std::string s[3] = { std::to_string(aid), std::to_string(iid), c->value(sender) };
@@ -421,7 +467,6 @@ void HAPService::handleAccessory(const char *request, unsigned int requestLen, c
 
 						std::string _result = dictionaryWrap(k, s, 3);
 						result += _result;
-
 					}
 
 				}
@@ -441,7 +486,9 @@ void HAPService::handleAccessory(const char *request, unsigned int requestLen, c
 		}
 		else if (strncmp(method, "PUT", 3) == 0) {
 			//Change characteristics
-			printf("PUT characteristics: \n");
+#ifdef HAP_DEBUG
+			printf("HAPService::handleAccessory : characteristics : PUT\n");
+#endif
 
 			char characteristicsBuffer[1000];
 			sscanf(dataPtr, "{\"characteristics\":[{%[^]]s}", characteristicsBuffer);
@@ -467,20 +514,24 @@ void HAPService::handleAccessory(const char *request, unsigned int requestLen, c
 					}
 					sender->relay = true;
 				}
-				printf("%d . %d\n", aid, iid);
+
+#ifdef HAP_DEBUG
+				printf("HAPService::handleAccessory : characteristics : change %d . %d \n", aid, iid);
+#endif
 
 				Accessory *a = AccessorySet::getInstance().accessoryAtIndex(aid);
-				if (a == NULL) {
+				if (a == nullptr) {
 					statusCode = 400;
 				}
 				else {
 					Characteristics *c = a->characteristicsAtIndex(iid);
 
 					if (updateNotify) {
-#if HomeKitLog == 1
-						printf("Ask to notify one characteristics: %d . %d -> %s\n", aid, iid, value);
+#ifdef HAP_DEBUG
+						printf("HAPService::handleAccessory : characteristics : notify %d . %d -> %s\n", aid, iid, value);
 #endif
-						if (c == NULL) {
+
+						if (c == nullptr) {
 							statusCode = 400;
 						}
 						else {
@@ -498,10 +549,10 @@ void HAPService::handleAccessory(const char *request, unsigned int requestLen, c
 						}
 					}
 					else {
-#if HomeKitLog == 1
-						printf("Ask to change one characteristics: %d . %d -> %s\n", aid, iid, value);
+#ifdef HAP_DEBUG
+						printf("HAPService::handleAccessory : characteristics : change %d . %d -> %s\n", aid, iid, value);
 #endif
-						if (c == NULL) {
+						if (c == nullptr) {
 							statusCode = 400;
 						}
 						else {
@@ -537,11 +588,10 @@ void HAPService::handleAccessory(const char *request, unsigned int requestLen, c
 	}
 	else {
 		//Error
-#if HomeKitLog == 1
-		printf("Ask for something I don't know\n");
+#ifdef HAP_DEBUG
+		printf("HAPService::handleAccessory : error: unknown request\n\tRequest: %s\nPath: %s\n", request, path);
 #endif
-		printf("%s\n", request);
-		printf("%s", path);
+
 		statusCode = 404;
 	}
 
@@ -563,8 +613,8 @@ void HAPService::handleAccessory(const char *request, unsigned int requestLen, c
 		delete[] replyData;
 	}
 
-#if HomeKitLog == 1 && HomeKitReplyHeaderLog==1
-	printf("Reply: %s\n", *reply);
+#ifdef HAP_DEBUG
+	printf("HAPService::handleAccessory : crafted reply : %s\n", reply);
 #endif
 
 }

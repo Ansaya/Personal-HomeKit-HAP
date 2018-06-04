@@ -4,16 +4,6 @@
 
 using namespace hap;
 
-int hap::is_big_endian(void)
-{
-	union {
-		uint32_t i;
-		char c[4];
-	} e = { 0x01000000 };
-
-	return e.c[0];
-}
-
 std::string hap::wrap(const char *str) { 
 	return (std::string)"\"" + str + "\""; 
 }

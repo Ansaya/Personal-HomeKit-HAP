@@ -7,9 +7,7 @@
 //
 //
 
-#define HomeKitLog 0
-#define HomeKitReplyHeaderLog 0
-#define PowerOnTest 0
+#define HAP_DEBUG
 
 //Device Setting
 #define deviceName "Flower House"    //Name
@@ -27,9 +25,6 @@
 #define numberOfNotifiableValue 2
 
 #define keepAlivePeriod 60
-
-//If you compiling this to microcontroller, set it to 1
-#define MCU 0
 
 #include <openssl/sha.h>
 #include <stdint.h>
