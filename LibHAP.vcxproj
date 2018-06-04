@@ -173,6 +173,7 @@
     <ClInclude Include="rfc6234-master\hkdf.h" />
     <ClInclude Include="rfc6234-master\sha.h" />
     <ClInclude Include="Service.h" />
+    <ClInclude Include="ServiceType.h" />
     <ClInclude Include="srp\acconfig.h" />
     <ClInclude Include="srp\config.h" />
     <ClInclude Include="srp\cstr.h" />

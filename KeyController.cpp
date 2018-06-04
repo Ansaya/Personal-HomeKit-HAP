@@ -18,7 +18,7 @@ KeyController::KeyController()
 {
 	std::ifstream fs;
 
-	fs.open(controllerRecordsAddress, std::ifstream::in);
+	fs.open(HAP_PAIR_RECORDS_PATH, std::ifstream::in);
 
 	char buffer[70];
 	bzero(buffer, 70);
@@ -38,7 +38,7 @@ KeyController::KeyController()
 
 void KeyController::resetControllerRecord() {
 	std::ofstream fs;
-	fs.open(controllerRecordsAddress, std::ofstream::out | std::ofstream::trunc);
+	fs.open(HAP_PAIR_RECORDS_PATH, std::ofstream::out | std::ofstream::trunc);
 }
 
 bool KeyController::hasController() const {
@@ -50,7 +50,7 @@ void KeyController::addControllerKey(const KeyRecord& record) {
 		_records.push_back(record);
 
 		std::ofstream fs;
-		fs.open(controllerRecordsAddress, std::ofstream::trunc);
+		fs.open(HAP_PAIR_RECORDS_PATH, std::ofstream::trunc);
 
 		for (auto& it : _records) {
 			fs.write(it.controllerID, 36);

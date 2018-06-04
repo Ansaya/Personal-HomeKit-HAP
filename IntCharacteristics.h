@@ -18,7 +18,7 @@ public:
     const unit _unit;
 	std::function<void(int oldValue, int newValue, net::ConnectionInfo *sender)> valueChangeFunctionCall;
 
-    IntCharacteristics(unsigned int _type, int _premission, int minVal, int maxVal, int step, unit charUnit)
+    IntCharacteristics(char_type _type, permission _premission, int minVal, int maxVal, int step, unit charUnit)
 		: Characteristics(_type, _premission), _minVal(minVal), _maxVal(maxVal), _step(step), _unit(charUnit) 
 	{
         _value = minVal;
@@ -33,11 +33,9 @@ public:
 
     virtual void setValue(std::string str, net::ConnectionInfo *sender) {
         float temp = atoi(str.c_str());
-        if (temp == temp) {
-            if (valueChangeFunctionCall != nullptr)
-                valueChangeFunctionCall(_value, temp, sender);
-            _value = temp;
-        }
+		if (valueChangeFunctionCall != nullptr && sender != nullptr)
+			valueChangeFunctionCall(_value, temp, sender);
+		_value = temp;
     }
 
 	virtual std::string describe(net::ConnectionInfo *sender) {

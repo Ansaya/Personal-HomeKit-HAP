@@ -36,12 +36,12 @@ namespace net {
 		void announce(BroadcastInfo* info);
 
 	private:
-		bool _setup;
+		std::atomic_bool _setup;
 		hap::deviceType _type;
 		int _socket;
 		DNSServiceRef _netService;
 
-		int _currentConfiguration = 1;
+		std::atomic_int _currentConfiguration;
 
 		std::list<ConnectionInfo*> _connections;
 		std::thread* _keepAlive;
@@ -49,10 +49,6 @@ namespace net {
 		HAPService();
 		HAPService(const HAPService&) = delete;
 		void operator=(const HAPService&) = delete;
-
-		//void handlePairSetup(int subSocket, char *buffer) const;
-
-		//void handlePairVerify(int subSocket, char *buffer) const;
 
 		void broadcastMessage(void *sender, char *resultData, size_t resultLen);
 

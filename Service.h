@@ -2,6 +2,7 @@
 #define HAP_SERVICE
 
 #include "Characteristics.h"
+#include "ServiceType.h"
 #include "net/ConnectionInfo.h"
 
 #include <string>
@@ -14,7 +15,7 @@ public:
     int serviceID, uuid;
     std::vector<Characteristics *> _characteristics;
 
-	Service(int _uuid);
+	Service(service_type _uuid);
 
 	virtual short numberOfCharacteristics();
 

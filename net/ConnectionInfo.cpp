@@ -15,7 +15,6 @@
 #include "../rfc6234-master/hkdf.h"
 #include "../srp/srp.h"
 
-#include <byteswap.h>
 #include <cstdio>
 #include <cstring>
 
@@ -78,7 +77,7 @@ void ConnectionInfo::handlePairSetup() {
         
         state = (PairSetupState)(*msg.data.dataPtrForIndex(6));
         
-        *stateRecord.data = (char)state+1;
+        *(stateRecord.data) = (char)state+1;
         switch (state) {
             case State_M1_SRPStartRequest: {
 #ifdef HAP_DEBUG
@@ -96,7 +95,7 @@ void ConnectionInfo::handlePairSetup() {
                 SRP_RESULT result = SRP_set_username(srp, "Pair-Setup");
                 int modulusSize = sizeof(modulusStr) / sizeof(modulusStr[0]);
                 result = SRP_set_params(srp, (const unsigned char *)modulusStr, modulusSize, (const unsigned char *)generator, 1, saltChar, 16);
-                result = SRP_set_auth_password(srp, devicePassword);
+                result = SRP_set_auth_password(srp, HAP_DEVICE_PASSWORD);
                 result = SRP_gen_pub(srp, &publicKey);
                 
                 saltRec.index = 2;
@@ -253,9 +252,9 @@ void ConnectionInfo::handlePairSetup() {
                             MessageDataRecord usernameRecord;
                             usernameRecord.activate = true;
 							usernameRecord.index = 1;
-							usernameRecord.length = strlen(deviceIdentity);
+							usernameRecord.length = strlen(HAP_DEVICE_MAC);
 							usernameRecord.data = new char[usernameRecord.length];
-							bcopy(deviceIdentity, usernameRecord.data, usernameRecord.length);
+							bcopy(HAP_DEVICE_MAC, usernameRecord.data, usernameRecord.length);
                             returnTLV8->addRecord(usernameRecord);
                         }
                         
@@ -268,7 +267,7 @@ void ConnectionInfo::handlePairSetup() {
                             uint8_t output[150];
                             hkdf((const unsigned char*)salt, strlen(salt), (const unsigned char*)secretKey->data, secretKey->length, (const unsigned char*)info, strlen(info), output, 32);
                             
-                            bcopy(deviceIdentity, &output[32], strlen(deviceIdentity));
+                            bcopy(HAP_DEVICE_MAC, &output[32], strlen(HAP_DEVICE_MAC));
                             
                             char *signature = new char[64];
                             ed25519_secret_key edSecret;
@@ -276,8 +275,8 @@ void ConnectionInfo::handlePairSetup() {
                             ed25519_public_key edPubKey;
                             ed25519_publickey(edSecret, edPubKey);
                             
-                            bcopy(edPubKey, &output[32+strlen(deviceIdentity)], 32);
-                            ed25519_sign(output, 64+strlen(deviceIdentity), (const unsigned char*)edSecret, (const unsigned char*)edPubKey, (unsigned char *)signature);
+                            bcopy(edPubKey, &output[32+strlen(HAP_DEVICE_MAC)], 32);
+                            ed25519_sign(output, 64+strlen(HAP_DEVICE_MAC), (const unsigned char*)edSecret, (const unsigned char*)edPubKey, (unsigned char *)signature);
                             MessageDataRecord signatureRecord;
                             signatureRecord.activate = true;
 							signatureRecord.data = signature;
@@ -395,8 +394,8 @@ void ConnectionInfo::handlePairVerify() {
                 
                 char *temp = new char[100];
                 bcopy(publicKey, temp, 32);
-                bcopy(deviceIdentity, &temp[32], strlen(deviceIdentity));
-                bcopy(controllerPublicKey, &temp[32+strlen(deviceIdentity)], 32);
+                bcopy(HAP_DEVICE_MAC, &temp[32], strlen(HAP_DEVICE_MAC));
+                bcopy(controllerPublicKey, &temp[32+strlen(HAP_DEVICE_MAC)], 32);
                 
                 MessageDataRecord signRecord;
                 signRecord.activate = true;
@@ -409,13 +408,13 @@ void ConnectionInfo::handlePairVerify() {
                 ed25519_public_key edPubKey;
                 ed25519_publickey(edSecret, edPubKey);
                 
-                ed25519_sign((const unsigned char *)temp, 64+strlen(deviceIdentity), edSecret, edPubKey, (unsigned char *)signRecord.data);
+                ed25519_sign((const unsigned char *)temp, 64+strlen(HAP_DEVICE_MAC), edSecret, edPubKey, (unsigned char *)signRecord.data);
                 delete [] temp;
                 
                 MessageDataRecord idRecord;
                 idRecord.activate = true;
                 idRecord.data = new char[17];
-                bcopy(deviceIdentity, idRecord.data, 17);
+                bcopy(HAP_DEVICE_MAC, idRecord.data, 17);
                 idRecord.index = 1;
                 idRecord.length = (unsigned int)17;
                 

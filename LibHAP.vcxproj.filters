@@ -308,6 +308,9 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="libHAP.h" />
+    <ClInclude Include="ServiceType.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="License" />

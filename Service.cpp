@@ -4,7 +4,7 @@
 
 using namespace hap;
 
-Service::Service(int _uuid) : uuid(_uuid) 
+Service::Service(service_type _uuid) : uuid(_uuid) 
 {
 }
 

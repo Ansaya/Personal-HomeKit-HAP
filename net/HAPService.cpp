@@ -11,8 +11,7 @@
 #include "../srp/srp.h"
 
 #include <algorithm>
-#include <byteswap.h>
-#include <dns_sd.h>
+#include <chrono>
 #include <mutex>
 #include <netdb.h>
 #include <string>
@@ -31,12 +30,14 @@ HAPService& HAPService::getInstance()
 	return instance;
 }
 
-HAPService::HAPService() : _setup(false) {
+HAPService::HAPService() : _setup(false), _currentConfiguration(1) {
 }
 
 HAPService::~HAPService() {
-	if(_setup)
+	if (_setup.load()) {
 		DNSServiceRefDeallocate(_netService);
+		SRP_finalize_library();
+	}
 }
 
 void HAPService::setup(deviceType type)
@@ -70,13 +71,13 @@ void HAPService::setup(deviceType type)
 	socklen_t len = sizeof(address);
 	getsockname(_socket, (struct sockaddr *)&address, &len);
 
-	DNSServiceRegister(&_netService, 0, 0, deviceName, HAPServiceType, "", NULL,
+	DNSServiceRegister(&_netService, 0, 0, HAP_DEVICE_NAME, HAPServiceType, "", NULL,
 		htons(ntohs(address.sin_port)), TXTRecordGetLength(&txtRecord), 
 		TXTRecordGetBytesPtr(&txtRecord), NULL, NULL);
 
 	TXTRecordDeallocate(&txtRecord);
 
-	_setup = true;
+	_setup.store(true);
 
 #ifdef HAP_DEBUG
 	printf("HAPService::setup : hap service setup completed.\n");
@@ -84,7 +85,7 @@ void HAPService::setup(deviceType type)
 }
 
 void HAPService::handleConnection() {
-	if (!_setup) {
+	if (!_setup.load()) {
 		printf("HAPService::handleConnection : please call HAPService::setup before!\n");
 		return;
 	}
@@ -201,7 +202,7 @@ void HAPService::keepAliveLoop()
 		strncpy(aliveMsg, "{\"characteristics\": []}", 32);
 		alivePackage->desc = aliveMsg;
 		announce(alivePackage);
-		sleep(keepAlivePeriod);
+		std::this_thread::sleep_for(std::chrono::seconds(HAP_NET_HAP_SERVICE_KEEP_ALIVE_PERIOD));
 	}
 }
 
@@ -235,9 +236,7 @@ void HAPService::connectionLoop(ConnectionInfo* info)
 
 				// Update configuration
 				_currentConfiguration++;
-				TXTRecordRef txtRecord = buildTXTRecord();
-				DNSServiceUpdateRecord(_netService, NULL, 0, TXTRecordGetLength(&txtRecord), TXTRecordGetBytesPtr(&txtRecord), 0);
-				TXTRecordDeallocate(&txtRecord);
+				updatePairable();
 			}
 			else if (!strcmp(msg.directory, "pair-verify")) {
 #ifdef HAP_DEBUG
@@ -277,16 +276,22 @@ TXTRecordRef HAPService::buildTXTRecord() {
 	TXTRecordRef txtRecord;
 	TXTRecordCreate(&txtRecord, 0, NULL);
 	TXTRecordSetValue(&txtRecord, "pv", 3, "1.0");  //Version
-	TXTRecordSetValue(&txtRecord, "id", 17, deviceIdentity);    //Device id
+	TXTRecordSetValue(&txtRecord, "id", 17, HAP_DEVICE_MAC);    //Device id
 	char buf[3];
-	sprintf(buf, "%d", _currentConfiguration);
+	sprintf(buf, "%d", _currentConfiguration.load());
 	TXTRecordSetValue(&txtRecord, "c#", 1, buf);    //Configuration Number
 	TXTRecordSetValue(&txtRecord, "s#", 1, "4");    //Number of service
-	if (KeyController::getInstance().hasController()) buf[0] = '0';
-	else buf[0] = '1';
+	if (KeyController::getInstance().hasController())
+#ifdef HAP_MULTIPLE_PAIRING
+		buf[0] = '1';
+#else
+		buf[0] = '0';
+#endif
+	else
+		buf[0] = '1';
 	TXTRecordSetValue(&txtRecord, "sf", 1, buf);    //Discoverable: 0 if has been paired
 	TXTRecordSetValue(&txtRecord, "ff", 1, "0");    //1 for MFI product
-	TXTRecordSetValue(&txtRecord, "md", strlen(deviceName), deviceName);    //Model Name
+	TXTRecordSetValue(&txtRecord, "md", strlen(HAP_DEVICE_NAME), HAP_DEVICE_NAME);    //Model Name
 	int len = sprintf(buf, "%d", _type);
 	TXTRecordSetValue(&txtRecord, "ci", len, buf);    //1 for MFI product
 	return txtRecord;
@@ -390,8 +395,11 @@ void HAPService::handleAccessory(const char *request, unsigned int requestLen, c
 			KeyController::getInstance().removeControllerKey(controllerRec);
 
 			MessageDataRecord drec;
-			drec.activate = true; drec.data = new char[1]; *drec.data = 2;
-			drec.index = 6; drec.length = 1;
+			drec.activate = true;
+			drec.data = new char[1];
+			*drec.data = 2;
+			drec.index = 6;
+			drec.length = 1;
 
 			MessageData data;
 			data.addRecord(drec);
@@ -417,10 +425,6 @@ void HAPService::handleAccessory(const char *request, unsigned int requestLen, c
 			char indexBuffer[1000];
 			sscanf(path, "/characteristics?id=%[^\n]", indexBuffer);
 
-#ifdef HAP_DEBUG
-			printf("HAPService::handleAccessory : characteristics : get %s\n", indexBuffer);
-#endif
-
 			statusCode = 404;
 
 			std::string result = "[";
@@ -436,15 +440,7 @@ void HAPService::handleAccessory(const char *request, unsigned int requestLen, c
 				temp[0] = 0;
 				sscanf(indexBuffer, "%d.%d%[^\n]", &aid, &iid, temp);
 
-#ifdef HAP_DEBUG
-				printf("HAPService::handleAccessory : characteristics : get temp %s\n", temp);
-#endif
-
 				strncpy(indexBuffer, temp, 1000);
-
-#ifdef HAP_DEBUG
-				printf("HAPService::handleAccessory : characteristics : get %s\n");
-#endif
 
 				//Trim comma
 				if (indexBuffer[0] == ',') {
@@ -500,14 +496,16 @@ void HAPService::handleAccessory(const char *request, unsigned int requestLen, c
 				buffer1 = strtok_r(buffer2, "}", &buffer2);
 				if (*buffer2 != 0) buffer2 += 2;
 
-				int aid = 0;    int iid = 0; char value[16];
+				int aid = 0;
+				int iid = 0;
+				char value[16];
 				int result = sscanf(buffer1, "\"aid\":%d,\"iid\":%d,\"value\":%s", &aid, &iid, value);
 				if (result == 2) {
 					sscanf(buffer1, "\"aid\":%d,\"iid\":%d,\"ev\":%s", &aid, &iid, value);
 					updateNotify = true;
 				}
 				else if (result == 0) {
-					sscanf(buffer1, "\"remote\":true,\"value\":%[^,],\"aid\":%d,\"iid\":%d", value, &aid, &iid);
+					result = sscanf(buffer1, "\"remote\":true,\"value\":%[^,],\"aid\":%d,\"iid\":%d", value, &aid, &iid);
 					if (result == 2) {
 						sscanf(buffer1, "\"remote\":true,\"aid\":%d,\"iid\":%d,\"ev\":%s", &aid, &iid, value);
 						updateNotify = true;
@@ -522,19 +520,24 @@ void HAPService::handleAccessory(const char *request, unsigned int requestLen, c
 				Accessory *a = AccessorySet::getInstance().accessoryAtIndex(aid);
 				if (a == nullptr) {
 					statusCode = 400;
+#ifdef HAP_DEBUG
+					printf("HAPService::handleAccessory : characteristics : error : accessory %d not found.\n", aid);
+#endif
 				}
 				else {
 					Characteristics *c = a->characteristicsAtIndex(iid);
 
-					if (updateNotify) {
+					if (c == nullptr) {
+						statusCode = 400;
 #ifdef HAP_DEBUG
-						printf("HAPService::handleAccessory : characteristics : notify %d . %d -> %s\n", aid, iid, value);
+						printf("HAPService::handleAccessory : characteristics : error : %d.%d not found.\n", aid, iid);
 #endif
-
-						if (c == nullptr) {
-							statusCode = 400;
-						}
-						else {
+					}
+					else {
+						if (updateNotify) {
+#ifdef HAP_DEBUG
+							printf("HAPService::handleAccessory : characteristics : notify %d . %d -> %s\n", aid, iid, value);
+#endif
 							if (c->notifiable()) {
 								if (strncmp(value, "1", 1) == 0 || strncmp(value, "true", 4) == 0)
 									sender->addNotify(c, aid, iid);
@@ -547,15 +550,10 @@ void HAPService::handleAccessory(const char *request, unsigned int requestLen, c
 								statusCode = 400;
 							}
 						}
-					}
-					else {
-#ifdef HAP_DEBUG
-						printf("HAPService::handleAccessory : characteristics : change %d . %d -> %s\n", aid, iid, value);
-#endif
-						if (c == nullptr) {
-							statusCode = 400;
-						}
 						else {
+#ifdef HAP_DEBUG
+							printf("HAPService::handleAccessory : characteristics : change %d . %d -> %s\n", aid, iid, value);
+#endif
 							if (c->writable()) {
 								c->setValue(value, sender);
 

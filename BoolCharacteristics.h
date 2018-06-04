@@ -14,7 +14,7 @@ public:
     bool _value;
 	std::function<void(bool oldValue, bool newValue, net::ConnectionInfo* sender)> valueChangeFunctionCall;
 
-    BoolCharacteristics(unsigned int _type, int _premission) : Characteristics(_type, _premission) {}
+    BoolCharacteristics(char_type _type, permission _premission) : Characteristics(_type, _premission) {}
 
     virtual std::string value(net::ConnectionInfo *sender) {
         if (perUserQuery != nullptr)
@@ -26,7 +26,7 @@ public:
 
     virtual void setValue(std::string str, net::ConnectionInfo *sender) {
         bool newValue = ("true" == str || "1" == str);
-        if (valueChangeFunctionCall != nullptr)
+        if (valueChangeFunctionCall != nullptr && sender != nullptr)
             valueChangeFunctionCall(_value, newValue, sender);
         _value = newValue;
     }

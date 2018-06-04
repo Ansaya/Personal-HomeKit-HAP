@@ -9,6 +9,9 @@ using namespace hap;
 
 void Characteristics::notify()
 {
+	if (!notifiable())
+		return;
+
 	char *broadcastTemp = new char[1024];
 	snprintf(broadcastTemp, 1024, "{\"characteristics\":[{\"aid\": %d, \"iid\": %d, \"value\": %s}]}", accessory->aid, iid, value(NULL).c_str());
 

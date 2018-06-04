@@ -3,7 +3,7 @@
 
 namespace hap {
 
-	typedef enum {
+	enum deviceType {
 		deviceType_other = 0,
 		deviceType_bridge = 2,
 		deviceType_fan = 3,
@@ -19,7 +19,7 @@ namespace hap {
 		deviceType_window = 13,
 		deviceType_windowCover = 14,
 		deviceType_programmableSwitch = 15,
-	} deviceType;
+	};
 
 }
 

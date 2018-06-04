@@ -5,6 +5,7 @@
 #include "DeviceType.h"
 #include "hapDefines.h"
 #include "Permission.h"
+#include "ServiceType.h"
 
 #include "BoolCharacteristics.h"
 #include "IntCharacteristics.h"

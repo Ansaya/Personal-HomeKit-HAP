@@ -3,6 +3,7 @@
 #include "BoolCharacteristics.h"
 #include "CharType.h"
 #include "Helpers.h"
+#include "ServiceType.h"
 #include "StringCharacteristics.h"
 
 
@@ -16,26 +17,26 @@ void Accessory::addService(Service *ser) {
 void Accessory::addInfoService(std::string accName, std::string manufactuerName, std::string modelName, std::string serialNumber,
 	std::function<void(bool oldValue, bool newValue, net::ConnectionInfo *sender)> identifyCallback)
 {
-	Service *infoService = new Service(serviceType_accessoryInfo);
+	Service *infoService = new Service(service_accessoryInfo);
 	addService(infoService);
 
-	StringCharacteristics *accNameCha = new StringCharacteristics(charType_serviceName, permission_read, 0);
+	StringCharacteristics *accNameCha = new StringCharacteristics(char_serviceName, permission_read, 0);
 	accNameCha->Characteristics::setValue(accName);
 	addCharacteristics(infoService, accNameCha);
 
-	StringCharacteristics *manNameCha = new StringCharacteristics(charType_manufactuer, permission_read, 0);
+	StringCharacteristics *manNameCha = new StringCharacteristics(char_manufactuer, permission_read, 0);
 	manNameCha->Characteristics::setValue(manufactuerName);
 	addCharacteristics(infoService, manNameCha);
 
-	StringCharacteristics *modelNameCha = new StringCharacteristics(charType_modelName, permission_read, 0);
+	StringCharacteristics *modelNameCha = new StringCharacteristics(char_modelName, permission_read, 0);
 	modelNameCha->Characteristics::setValue(modelName);
 	addCharacteristics(infoService, modelNameCha);
 
-	StringCharacteristics *serialNameCha = new StringCharacteristics(charType_serialNumber, permission_read, 0);
+	StringCharacteristics *serialNameCha = new StringCharacteristics(char_serialNumber, permission_read, 0);
 	serialNameCha->Characteristics::setValue(serialNumber);
 	addCharacteristics(infoService, serialNameCha);
 
-	BoolCharacteristics *identify = new BoolCharacteristics(charType_identify, permission_write);
+	BoolCharacteristics *identify = new BoolCharacteristics(char_identify, permission_write);
 	identify->Characteristics::setValue("false");
 	identify->valueChangeFunctionCall = identifyCallback;
 	addCharacteristics(infoService, identify);

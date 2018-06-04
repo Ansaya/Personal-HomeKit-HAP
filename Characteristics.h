@@ -1,6 +1,7 @@
 #ifndef HAP_CHARACTERISTICS
 #define HAP_CHARACTERISTICS
 
+#include "CharType.h"
 #include "net/ConnectionInfo.h"
 #include "hapDefines.h"
 #include "Permission.h"
@@ -19,12 +20,12 @@ public:
     int iid;
 	std::function<std::string(net::ConnectionInfo* sender)> perUserQuery;
 
-    Characteristics(unsigned int _type, int _premission): type(_type), premission(_premission) {}
+    Characteristics(char_type _type, permission _premission): type(_type), premission(_premission) {}
     
 	virtual std::string value(net::ConnectionInfo *sender) = 0;
     
 	void setValue(std::string str) {
-        setValue(str, NULL);
+        setValue(str, nullptr);
     }
     
 	virtual void setValue(std::string str, net::ConnectionInfo *sender) = 0;
