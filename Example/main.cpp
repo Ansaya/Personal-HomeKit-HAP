@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <fstream>
-#include <libHAP.h>
+#include <hap/libHAP.h>
+#include <memory>
 #include <thread>
 
 using namespace hap;
@@ -18,7 +19,7 @@ void initAccessorySet() {
 
 	printf("Initial Accessory\n");
 
-	Accessory *lightAcc = new Accessory();
+	Accessory_ptr lightAcc = std::make_shared<Accessory>();
 
 	//Add Light
 	lightAcc->addInfoService("Light 1", "ET", "Light", "12345678", &lightIdentify);
@@ -37,17 +38,24 @@ void initAccessorySet() {
 
 	IntCharacteristics *brightnessState = new IntCharacteristics(char_brightness, permission_all, 0, 100, 1, unit_percentage);
 	brightnessState->setValue("50", NULL);
+	brightnessState->valueChangeFunctionCall = [brightnessState](int oldValue, int newValue, net::ConnectionInfo* info) {
+		if (oldValue != newValue) {
+			printf("\n\nValue change\n\n");
+			brightnessState->Characteristics::setValue(std::to_string(newValue));
+		}
+	};
 	lightAcc->addCharacteristics(lightService, brightnessState);
 
 	std::thread t([brightnessState]() { 
-		std::this_thread::sleep_for(std::chrono::seconds(15)); 
+		std::this_thread::sleep_for(std::chrono::seconds(20)); 
 		brightnessState->Characteristics::setValue("0"); 
+		brightnessState->notify();
 		printf("\n\nLight Off\n\n");
 	});
 	t.detach();
 
 	//Add fan
-	Accessory *fan = new Accessory();
+	Accessory_ptr fan = std::make_shared<Accessory>();
 	fan->addInfoService("Fan 1", "ET", "Fan", "12345678", &fanIdentify);
 	AccessorySet::getInstance().addAccessory(fan);
 
@@ -55,11 +63,11 @@ void initAccessorySet() {
 	fan->addService(fanService);
 
 	StringCharacteristics *fanServiceName = new StringCharacteristics(char_serviceName, permission_read, 0);
-	fanServiceName->setValue("Fan", NULL);
+	fanServiceName->setValue("Fan", nullptr);
 	fan->addCharacteristics(fanService, fanServiceName);
 
 	BoolCharacteristics *fanPower = new BoolCharacteristics(char_on, permission_all);
-	fanPower->setValue("true", NULL);
+	fanPower->setValue("true", nullptr);
 	fan->addCharacteristics(fanService, fanPower);
 };
 

@@ -19,16 +19,16 @@
     <Filter Include="srp">
       <UniqueIdentifier>{634ecdf0-29a0-4d2d-895f-13a7e8213aa1}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Headers">
+    <Filter Include="include">
       <UniqueIdentifier>{c786bc1d-f0f0-403b-9b4d-f18322333ae6}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Sources">
-      <UniqueIdentifier>{bac6691e-1be3-4249-bea3-47b561c1469a}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Headers\net">
+    <Filter Include="include\net">
       <UniqueIdentifier>{f5e36500-052c-4344-9204-ba5cee3420e3}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Sources\net">
+    <Filter Include="srcs">
+      <UniqueIdentifier>{bac6691e-1be3-4249-bea3-47b561c1469a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="srcs\net">
       <UniqueIdentifier>{a2d61076-a0d4-48f1-933a-943677a5a98f}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
@@ -84,44 +84,51 @@
     <ClCompile Include="srp\t_truerand.c">
       <Filter>srp</Filter>
     </ClCompile>
-    <ClCompile Include="PHKAccessory.cpp" />
-    <ClCompile Include="PHKControllerRecord.cpp" />
-    <ClCompile Include="PHKNetworkIP.cpp" />
-    <ClCompile Include="net\ConnectionInfo.cpp">
-      <Filter>Sources\net</Filter>
+    <ClCompile Include="Helpers.cpp" />
+    <ClCompile Include="srcs\net\ConnectionInfo.cpp">
+      <Filter>srcs\net</Filter>
     </ClCompile>
-    <ClCompile Include="net\MessageDataRecord.cpp">
-      <Filter>Sources\net</Filter>
+    <ClCompile Include="srcs\net\HAPService.cpp">
+      <Filter>srcs\net</Filter>
     </ClCompile>
-    <ClCompile Include="net\Message.cpp">
-      <Filter>Sources\net</Filter>
+    <ClCompile Include="srcs\net\Message.cpp">
+      <Filter>srcs\net</Filter>
     </ClCompile>
-    <ClCompile Include="net\MessageData.cpp">
-      <Filter>Sources\net</Filter>
+    <ClCompile Include="srcs\net\MessageData.cpp">
+      <Filter>srcs\net</Filter>
     </ClCompile>
-    <ClCompile Include="net\Response.cpp">
-      <Filter>Sources\net</Filter>
+    <ClCompile Include="srcs\net\MessageDataRecord.cpp">
+      <Filter>srcs\net</Filter>
     </ClCompile>
-    <ClCompile Include="KeyController.cpp">
-      <Filter>Sources</Filter>
+    <ClCompile Include="srcs\net\Response.cpp">
+      <Filter>srcs\net</Filter>
     </ClCompile>
-    <ClCompile Include="net\HAPService.cpp">
-      <Filter>Sources\net</Filter>
+    <ClCompile Include="srcs\Accessory.cpp">
+      <Filter>srcs</Filter>
     </ClCompile>
-    <ClCompile Include="Helpers.cpp">
-      <Filter>Sources</Filter>
+    <ClCompile Include="srcs\AccessorySet.cpp">
+      <Filter>srcs</Filter>
     </ClCompile>
-    <ClCompile Include="Characteristics.cpp">
-      <Filter>Sources</Filter>
+    <ClCompile Include="srcs\Characteristics.cpp">
+      <Filter>srcs</Filter>
     </ClCompile>
-    <ClCompile Include="Accessory.cpp">
-      <Filter>Sources</Filter>
+    <ClCompile Include="srcs\KeyController.cpp">
+      <Filter>srcs</Filter>
     </ClCompile>
-    <ClCompile Include="Service.cpp">
-      <Filter>Sources</Filter>
+    <ClCompile Include="srcs\Service.cpp">
+      <Filter>srcs</Filter>
     </ClCompile>
-    <ClCompile Include="AccessorySet.cpp">
-      <Filter>Sources</Filter>
+    <ClCompile Include="srcs\BoolCharacteristics.cpp">
+      <Filter>srcs</Filter>
+    </ClCompile>
+    <ClCompile Include="srcs\IntCharacteristics.cpp">
+      <Filter>srcs</Filter>
+    </ClCompile>
+    <ClCompile Include="srcs\FloatCharacteristics.cpp">
+      <Filter>srcs</Filter>
+    </ClCompile>
+    <ClCompile Include="srcs\StringCharacteristics.cpp">
+      <Filter>srcs</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -240,77 +247,76 @@
       <Filter>srp</Filter>
     </ClInclude>
     <ClInclude Include="Configuration.h" />
-    <ClInclude Include="PHKAccessory.h" />
-    <ClInclude Include="PHKControllerRecord.h" />
-    <ClInclude Include="PHKNetworkIP.h" />
-    <ClInclude Include="hapDefines.h" />
-    <ClInclude Include="Characteristics.h">
-      <Filter>Headers</Filter>
+    <ClInclude Include="include\net\ConnectionInfo.h">
+      <Filter>include\net</Filter>
     </ClInclude>
-    <ClInclude Include="CharType.h">
-      <Filter>Headers</Filter>
+    <ClInclude Include="include\net\HAPService.h">
+      <Filter>include\net</Filter>
     </ClInclude>
-    <ClInclude Include="Permission.h">
-      <Filter>Headers</Filter>
+    <ClInclude Include="include\net\Message.h">
+      <Filter>include\net</Filter>
     </ClInclude>
-    <ClInclude Include="Unit.h">
-      <Filter>Headers</Filter>
+    <ClInclude Include="include\net\MessageData.h">
+      <Filter>include\net</Filter>
     </ClInclude>
-    <ClInclude Include="BoolCharacteristics.h">
-      <Filter>Headers</Filter>
+    <ClInclude Include="include\net\MessageDataRecord.h">
+      <Filter>include\net</Filter>
     </ClInclude>
-    <ClInclude Include="net\ConnectionInfo.h">
-      <Filter>Headers\net</Filter>
+    <ClInclude Include="include\net\PairStates.h">
+      <Filter>include\net</Filter>
     </ClInclude>
-    <ClInclude Include="net\MessageDataRecord.h">
-      <Filter>Headers\net</Filter>
+    <ClInclude Include="include\net\Response.h">
+      <Filter>include\net</Filter>
     </ClInclude>
-    <ClInclude Include="net\PairStates.h">
-      <Filter>Headers\net</Filter>
+    <ClInclude Include="include\Accessory.h">
+      <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="net\Message.h">
-      <Filter>Headers\net</Filter>
+    <ClInclude Include="include\AccessorySet.h">
+      <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="net\MessageData.h">
-      <Filter>Headers\net</Filter>
+    <ClInclude Include="include\BoolCharacteristics.h">
+      <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="net\Response.h">
-      <Filter>Headers\net</Filter>
+    <ClInclude Include="include\Characteristics.h">
+      <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="KeyController.h">
-      <Filter>Headers</Filter>
+    <ClInclude Include="include\CharType.h">
+      <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="net\HAPService.h">
-      <Filter>Headers\net</Filter>
+    <ClInclude Include="include\DeviceType.h">
+      <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="Helpers.h">
-      <Filter>Headers</Filter>
+    <ClInclude Include="include\FloatCharacteristics.h">
+      <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="IntCharacteristics.h">
-      <Filter>Headers</Filter>
+    <ClInclude Include="include\hapDefines.h">
+      <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="FloatCharacteristics.h">
-      <Filter>Headers</Filter>
+    <ClInclude Include="include\IntCharacteristics.h">
+      <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="StringCharacteristics.h">
-      <Filter>Headers</Filter>
+    <ClInclude Include="include\KeyController.h">
+      <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="Accessory.h">
-      <Filter>Headers</Filter>
+    <ClInclude Include="include\libHAP.h">
+      <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="Service.h">
-      <Filter>Headers</Filter>
+    <ClInclude Include="include\Permission.h">
+      <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="AccessorySet.h">
-      <Filter>Headers</Filter>
+    <ClInclude Include="include\Service.h">
+      <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="DeviceType.h">
-      <Filter>Headers</Filter>
+    <ClInclude Include="include\ServiceType.h">
+      <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="libHAP.h" />
-    <ClInclude Include="ServiceType.h">
-      <Filter>Headers</Filter>
+    <ClInclude Include="include\StringCharacteristics.h">
+      <Filter>include</Filter>
     </ClInclude>
+    <ClInclude Include="include\Unit.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="Helpers.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="License" />
@@ -318,8 +324,5 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="SerivceList.txt" />
-  </ItemGroup>
-  <ItemGroup>
-    <CustomBuild Include="makefile" />
   </ItemGroup>
 </Project>

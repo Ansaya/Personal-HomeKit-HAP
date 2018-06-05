@@ -71,44 +71,38 @@
     <MultiProcNumber>4</MultiProcNumber>
     <TargetName>libhap</TargetName>
     <RemoteCCompileToolExe>g++</RemoteCCompileToolExe>
+    <IncludePath>include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
     <MultiProcNumber>4</MultiProcNumber>
     <TargetName>libhap</TargetName>
     <RemoteCCompileToolExe>g++</RemoteCCompileToolExe>
+    <IncludePath>include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemGroup>
-    <ClCompile Include="Accessory.cpp" />
-    <ClCompile Include="AccessorySet.cpp" />
     <ClCompile Include="Chacha20\chacha20_simple.c" />
-    <ClCompile Include="Characteristics.cpp" />
     <ClCompile Include="curve25519\curve25519-donna.c" />
     <ClCompile Include="ed25519-donna\ed25519.c" />
     <ClCompile Include="Helpers.cpp" />
-    <ClCompile Include="KeyController.cpp" />
-    <ClCompile Include="net\ConnectionInfo.cpp" />
-    <ClCompile Include="net\HAPService.cpp" />
-    <ClCompile Include="net\Message.cpp" />
-    <ClCompile Include="net\MessageData.cpp" />
-    <ClCompile Include="net\MessageDataRecord.cpp" />
-    <ClCompile Include="net\Response.cpp" />
-    <ClCompile Include="PHKAccessory.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="PHKControllerRecord.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="PHKNetworkIP.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
-    </ClCompile>
     <ClCompile Include="poly1305-opt-master\poly1305.c" />
     <ClCompile Include="rfc6234-master\hkdf.c" />
     <ClCompile Include="rfc6234-master\hmac.c" />
     <ClCompile Include="rfc6234-master\sha.c" />
-    <ClCompile Include="Service.cpp" />
+    <ClCompile Include="srcs\Accessory.cpp" />
+    <ClCompile Include="srcs\AccessorySet.cpp" />
+    <ClCompile Include="srcs\BoolCharacteristics.cpp" />
+    <ClCompile Include="srcs\Characteristics.cpp" />
+    <ClCompile Include="srcs\FloatCharacteristics.cpp" />
+    <ClCompile Include="srcs\IntCharacteristics.cpp" />
+    <ClCompile Include="srcs\KeyController.cpp" />
+    <ClCompile Include="srcs\net\ConnectionInfo.cpp" />
+    <ClCompile Include="srcs\net\HAPService.cpp" />
+    <ClCompile Include="srcs\net\Message.cpp" />
+    <ClCompile Include="srcs\net\MessageData.cpp" />
+    <ClCompile Include="srcs\net\MessageDataRecord.cpp" />
+    <ClCompile Include="srcs\net\Response.cpp" />
+    <ClCompile Include="srcs\Service.cpp" />
+    <ClCompile Include="srcs\StringCharacteristics.cpp" />
     <ClCompile Include="srp\cstr.c" />
     <ClCompile Include="srp\srp.c" />
     <ClCompile Include="srp\srp6_server.c" />
@@ -121,15 +115,9 @@
     <ClCompile Include="srp\t_truerand.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Accessory.h" />
-    <ClInclude Include="AccessorySet.h" />
-    <ClInclude Include="BoolCharacteristics.h" />
     <ClInclude Include="Chacha20\chacha20_simple.h" />
-    <ClInclude Include="Characteristics.h" />
-    <ClInclude Include="CharType.h" />
     <ClInclude Include="Configuration.h" />
     <ClInclude Include="curve25519\curve25519-donna.h" />
-    <ClInclude Include="DeviceType.h" />
     <ClInclude Include="ed25519-donna\curve25519-donna-32bit.h" />
     <ClInclude Include="ed25519-donna\curve25519-donna-helpers.h" />
     <ClInclude Include="ed25519-donna\ed25519-donna-32bit-tables.h" />
@@ -143,37 +131,33 @@
     <ClInclude Include="ed25519-donna\ed25519-randombytes.h" />
     <ClInclude Include="ed25519-donna\ed25519.h" />
     <ClInclude Include="ed25519-donna\modm-donna-32bit.h" />
-    <ClInclude Include="FloatCharacteristics.h" />
-    <ClInclude Include="hapDefines.h" />
     <ClInclude Include="Helpers.h" />
-    <ClInclude Include="IntCharacteristics.h" />
-    <ClInclude Include="KeyController.h" />
-    <ClInclude Include="libHAP.h" />
-    <ClInclude Include="net\ConnectionInfo.h" />
-    <ClInclude Include="net\HAPService.h" />
-    <ClInclude Include="net\Message.h" />
-    <ClInclude Include="net\MessageData.h" />
-    <ClInclude Include="net\MessageDataRecord.h" />
-    <ClInclude Include="net\PairStates.h" />
-    <ClInclude Include="net\Response.h" />
-    <ClInclude Include="Permission.h" />
-    <ClInclude Include="PHKAccessory.h">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
-    </ClInclude>
-    <ClInclude Include="PHKControllerRecord.h">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
-    </ClInclude>
-    <ClInclude Include="PHKNetworkIP.h">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
-    </ClInclude>
+    <ClInclude Include="include\Accessory.h" />
+    <ClInclude Include="include\AccessorySet.h" />
+    <ClInclude Include="include\BoolCharacteristics.h" />
+    <ClInclude Include="include\Characteristics.h" />
+    <ClInclude Include="include\CharType.h" />
+    <ClInclude Include="include\DeviceType.h" />
+    <ClInclude Include="include\FloatCharacteristics.h" />
+    <ClInclude Include="include\hapDefines.h" />
+    <ClInclude Include="include\IntCharacteristics.h" />
+    <ClInclude Include="include\KeyController.h" />
+    <ClInclude Include="include\libHAP.h" />
+    <ClInclude Include="include\net\ConnectionInfo.h" />
+    <ClInclude Include="include\net\HAPService.h" />
+    <ClInclude Include="include\net\Message.h" />
+    <ClInclude Include="include\net\MessageData.h" />
+    <ClInclude Include="include\net\MessageDataRecord.h" />
+    <ClInclude Include="include\net\PairStates.h" />
+    <ClInclude Include="include\net\Response.h" />
+    <ClInclude Include="include\Permission.h" />
+    <ClInclude Include="include\Service.h" />
+    <ClInclude Include="include\ServiceType.h" />
+    <ClInclude Include="include\StringCharacteristics.h" />
+    <ClInclude Include="include\Unit.h" />
     <ClInclude Include="poly1305-opt-master\poly1305.h" />
     <ClInclude Include="rfc6234-master\hkdf.h" />
     <ClInclude Include="rfc6234-master\sha.h" />
-    <ClInclude Include="Service.h" />
-    <ClInclude Include="ServiceType.h" />
     <ClInclude Include="srp\acconfig.h" />
     <ClInclude Include="srp\config.h" />
     <ClInclude Include="srp\cstr.h" />
@@ -194,14 +178,9 @@
     <ClInclude Include="srp\t_server.h" />
     <ClInclude Include="srp\t_sha.h" />
     <ClInclude Include="srp\yp_misc.h" />
-    <ClInclude Include="StringCharacteristics.h" />
-    <ClInclude Include="Unit.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="License" />
-    <CustomBuild Include="makefile">
-      <FileType>Document</FileType>
-    </CustomBuild>
     <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
@@ -214,9 +193,11 @@
     </Link>
     <ClCompile>
       <ExceptionHandling>Disabled</ExceptionHandling>
+      <CAdditionalWarning>switch;no-deprecated-declarations;empty-body;no-conversion;return-type;parentheses;no-pointer-sign;no-format;uninitialized;unreachable-code;unused-function;unused-value;unused-variable</CAdditionalWarning>
+      <CppAdditionalWarning>switch;no-deprecated-declarations;empty-body;no-conversion;return-type;parentheses;no-format;uninitialized;unreachable-code;unused-function;unused-value;unused-variable</CppAdditionalWarning>
     </ClCompile>
     <RemotePostBuildEvent>
-      <Command>sudo rm -f /usr/lib/$(TargetFileName); sudo ln -s $(RemoteOutDir)$(TargetFileName) /usr/lib/$(TargetFileName)</Command>
+      <Command>sudo ln -sf $(RemoteOutDir)$(TargetFileName) /usr/local/lib/$(TargetFileName); if [ ! -L /usr/local/include/hap ]; then sudo ln -sf $(RemoteProjectDir)/include /usr/local/include/hap; fi;</Command>
     </RemotePostBuildEvent>
     <RemotePostBuildEvent>
       <Message>Create global library link</Message>
@@ -229,9 +210,11 @@
     </Link>
     <ClCompile>
       <ExceptionHandling>Disabled</ExceptionHandling>
+      <CAdditionalWarning>switch;no-deprecated-declarations;empty-body;no-conversion;return-type;parentheses;no-pointer-sign;no-format;uninitialized;unreachable-code;unused-function;unused-value;unused-variable</CAdditionalWarning>
+      <CppAdditionalWarning>switch;no-deprecated-declarations;empty-body;no-conversion;return-type;parentheses;no-format;uninitialized;unreachable-code;unused-function;unused-value;unused-variable</CppAdditionalWarning>
     </ClCompile>
     <RemotePostBuildEvent>
-      <Command>sudo rm -f /usr/lib/$(TargetFileName); sudo ln -s $(RemoteOutDir)$(TargetFileName) /usr/lib/$(TargetFileName)</Command>
+      <Command>sudo ln -sf $(RemoteOutDir)$(TargetFileName) /usr/local/lib/$(TargetFileName); if [ ! -L /usr/local/include/hap ]; then sudo ln -sf $(RemoteProjectDir)/include /usr/local/include/hap; fi;</Command>
     </RemotePostBuildEvent>
     <RemotePostBuildEvent>
       <Message>Create global library link</Message>

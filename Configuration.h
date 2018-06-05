@@ -17,14 +17,7 @@
 #define HAP_DEVICE_MAC "11:10:34:23:51:12"  //ID
 #define HAP_DEVICE_PASSWORD "523-12-643" //Password
 #define HAP_DEVICE_UUID "62F47751-8F26-46BF-9552-8F4238E67D60"   //UUID, for pair verify
-#define HAP_PAIR_RECORDS_PATH "./PHK_controller" //Where to store the client keys
-
-//Number of notifiable value
-/*
- * Count how many notifiable value exist in your set
- * For dynamic add/drop model, please estimate the maximum number (Too few->Buffer overflow)
- */
-#define numberOfNotifiableValue 20
+#define HAP_PAIR_RECORDS_PATH "./hap_client_keys" //Where to store the client keys
 
 #define HAP_NET_HAP_SERVICE_KEEP_ALIVE_PERIOD 60
 
