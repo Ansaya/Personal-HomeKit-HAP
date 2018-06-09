@@ -46,13 +46,13 @@ void initAccessorySet() {
 	};
 	lightAcc->addCharacteristics(lightService, brightnessState);
 
-	std::thread t([brightnessState]() { 
+	/*std::thread t([brightnessState]() { 
 		std::this_thread::sleep_for(std::chrono::seconds(20)); 
 		brightnessState->Characteristics::setValue("0"); 
 		brightnessState->notify();
 		printf("\n\nLight Off\n\n");
 	});
-	t.detach();
+	t.detach();*/
 
 	//Add fan
 	Accessory_ptr fan = std::make_shared<Accessory>();

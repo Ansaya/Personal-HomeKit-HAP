@@ -25,7 +25,7 @@ public:
 
 	void removeControllerKey(const KeyRecord& record);
 
-	const KeyRecord getControllerKey(char key[32]) const;
+	const KeyRecord getControllerKey(const char key[32]) const;
 
 
 private:

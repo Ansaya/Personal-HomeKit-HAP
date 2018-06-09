@@ -70,13 +70,13 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <MultiProcNumber>4</MultiProcNumber>
     <TargetName>libhap</TargetName>
-    <RemoteCCompileToolExe>g++</RemoteCCompileToolExe>
+    <RemoteCCompileToolExe>gcc</RemoteCCompileToolExe>
     <IncludePath>include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
     <MultiProcNumber>4</MultiProcNumber>
     <TargetName>libhap</TargetName>
-    <RemoteCCompileToolExe>g++</RemoteCCompileToolExe>
+    <RemoteCCompileToolExe>gcc</RemoteCCompileToolExe>
     <IncludePath>include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemGroup>

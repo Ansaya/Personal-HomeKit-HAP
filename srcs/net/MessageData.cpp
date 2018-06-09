@@ -1,91 +1,100 @@
 #include <net/MessageData.h>
 
+#include <algorithm>
 #include <cstring>
 #include <string>
 
 using namespace hap::net;
 
-MessageData::MessageData(const char *rawData, unsigned short len) {
-	unsigned short delta = 0;
-	while (delta < len) {
-		int index = recordIndex(rawData[delta + 0]);
-		if (index < 0) {
-			records[count].index = (rawData)[delta + 0];
-			records[count].length = (unsigned char)(rawData)[delta + 1];
-			records[count].data = new char[records[count].length];
-			records[count].activate = true;
-			bcopy(&rawData[delta + 2], records[count].data, records[count].length);
-			delta += (records[count].length + 2);
-			count++;
+MessageData::MessageData()
+{
+}
+
+MessageData::MessageData(const std::string& rawData)
+{
+	// Decode message data structure into single data records
+	// [rawData] = [index (1 byte) | length (1 byte) | data record (255 bytes max) ]*
+	size_t delta = 0;
+	while (delta < rawData.length()) {
+		uint8_t currentIndex = rawData[delta + 0];
+		uint8_t dataLength = rawData[delta + 1];
+		std::string recordData = rawData.substr(delta + 2, dataLength);
+
+		MessageDataRecord_ptr currentRecord = _findRecord(currentIndex);
+		if (currentRecord == nullptr) {
+			currentRecord = std::make_shared<MessageDataRecord>(
+				currentIndex, 
+				recordData, 
+				true);
+
+			_records.push_back(currentRecord);
 		}
 		else {
-			int newLen = ((unsigned char*)(rawData))[delta + 1];
-			newLen += records[index].length;
-			char *ptr = new char[newLen];
-			bcopy(records[index].data, ptr, records[index].length);
-			bcopy(&rawData[delta + 2], &ptr[records[index].length], newLen - records[index].length);
-			delete[] records[index].data;
-			records[index].data = ptr;
-
-			delta += (newLen - records[index].length + 2);
-			records[index].length = newLen;
-
+			currentRecord->pushData(recordData);
 		}
+		delta += dataLength + 2;
 	}
 }
 
-MessageData & MessageData::operator=(const MessageData &data) {
-	count = data.count;
-	for (int i = 0; i < 10; i++) {
-		if (data.records[i].length) {
-			records[i] = data.records[i];
-			records[i].data = new char[records[i].length];
-			bcopy(data.records[i].data, records[i].data, data.records[i].length);
-		}
-	}
+MessageData::MessageData(const MessageData &copy)
+{
+	*this = copy;
+}
+
+MessageData & MessageData::operator=(const MessageData &data)
+{
+	// Copy each record to the new object
+	for (auto& it : data._records)
+		_records.push_back(std::make_shared<MessageDataRecord>(*it));
+
 	return *this;
 }
 
-void MessageData::rawData(const char **dataPtr, unsigned short *len) {
-	std::string buffer = "";
-	for (int i = 0; i < 10; i++) {
-		if (records[i].activate) {
-			for (int j = 0; j != records[i].length;) {
-				unsigned char len = records[i].length - j>255 ? 255 : records[i].length - j;
-				std::string temp(&records[i].data[j], len);
-				temp = (char)records[i].index + ((char)len + temp);
-				buffer += temp;
-				j += (unsigned int)len;
+std::string MessageData::rawData() const
+{
+	std::string buffer;
+
+	// Write each record back to a signle buffer structure as 
+	// [index (1 byte) | length (1 byte) | data record (255 bytes max) ]*
+	for (auto& it : _records) {
+		if (it->isActive()) {
+			// Restore 255 bytes data chunks
+			size_t i = 0;
+			for (; i < it->getData().length() / (uint8_t)UINT8_MAX; i++) {
+				buffer.append(std::to_string(it->getIndex()));
+				buffer.append(std::to_string((uint8_t)UINT8_MAX));
+				buffer.append(it->getData().substr(i * UINT8_MAX, UINT8_MAX));
 			}
+			uint8_t tailLength = it->getData().length() % (uint8_t)UINT8_MAX;
+			buffer.append(std::to_string(it->getIndex()));
+			buffer.append(std::to_string(tailLength));
+			buffer.append(it->getData().substr(i * 255, tailLength));
 		}
 	}
-	*len = buffer.length();
-	*dataPtr = new char[*len];
-	bcopy(buffer.c_str(), (void *)*dataPtr, *len);
+
+	return buffer;
 }
 
-void MessageData::addRecord(MessageDataRecord& record) {
-	records[count] = record;
-	count++;
+void MessageData::addRecord(MessageDataRecord_ptr record)
+{
+	_records.push_back(record);
 }
 
-int MessageData::recordIndex(unsigned char index) {
-	for (int i = 0; i < count; i++) {
-		if (records[i].activate&&records[i].index == index) return i;
-	}
-	return -1;
+ConstMessageDataRecord_ptr MessageData::getRecordForIndex(uint8_t index) const
+{
+	return _findRecord(index);
 }
 
-char *MessageData::dataPtrForIndex(unsigned char index) {
-	int _index = recordIndex(index);
-	if (_index >= 0)
-		return records[_index].data;
-	return 0;
-}
+MessageDataRecord_ptr MessageData::_findRecord(uint8_t index) const
+{
+	auto mdr = std::find_if(_records.begin(), _records.end(),
+		[index](const MessageDataRecord_ptr& mdr_p)
+	{
+		return mdr_p->getIndex() == index;
+	});
 
-unsigned int MessageData::lengthForIndex(unsigned char index) {
-	int _index = recordIndex(index);
-	if (_index >= 0)
-		return records[_index].length;
-	return 0;
+	if (mdr != _records.end())
+		return *mdr;
+
+	return nullptr;
 }

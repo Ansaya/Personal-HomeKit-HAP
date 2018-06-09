@@ -3,6 +3,8 @@
 
 #include "MessageData.h"
 
+#include <cstdint>
+#include <memory>
 #include <string>
 
 namespace hap {
@@ -10,17 +12,19 @@ namespace hap {
 namespace net {
 
 	class Response {
-		unsigned short responseCode;
-		std::string responseType();
-
 	public:
-		MessageData data;
+		Response(uint16_t _responseCode, ConstMessageData_ptr);
 
-		Response(unsigned short _responseCode);
+		Response(const Response& copy);
 
-		void getBinaryPtr(char **buffer, int *contentLength);
+		std::string getResponse();
 
+	private:
+		uint16_t _responseCode;
+		ConstMessageData_ptr _content;
 	};
+
+	typedef std::shared_ptr<Response> Response_ptr;
 
 }
 

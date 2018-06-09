@@ -3,33 +3,40 @@
 
 #include "MessageDataRecord.h"
 
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <vector>
+
 namespace hap {
 
 namespace net {
 
 	class MessageData {
-		MessageDataRecord records[10];
-		unsigned char count = 0;
-
 	public:
-		MessageData() {}
+		MessageData();
 
-		MessageData(const char *rawData, unsigned short len);
+		MessageData(const std::string& rawData);
 
-		MessageData(const MessageData &data);
+		MessageData(const MessageData& copy);
 
 		MessageData &operator=(const MessageData &);
 
-		void rawData(const char **dataPtr, unsigned short *len);
+		std::string rawData() const;
 
-		void addRecord(MessageDataRecord& record);
+		void addRecord(MessageDataRecord_ptr record);
 
-		int recordIndex(unsigned char index);
+		ConstMessageDataRecord_ptr getRecordForIndex(uint8_t index) const;
 
-		char *dataPtrForIndex(unsigned char index);
+	private:
+		std::vector<MessageDataRecord_ptr> _records;
 
-		unsigned int lengthForIndex(unsigned char index);
+		MessageDataRecord_ptr _findRecord(uint8_t recordIndex) const;
 	};
+
+	typedef std::shared_ptr<MessageData> MessageData_ptr;
+
+	typedef std::shared_ptr<const MessageData> ConstMessageData_ptr;
 
 }
 
