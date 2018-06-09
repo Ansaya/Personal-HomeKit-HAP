@@ -61,14 +61,14 @@ std::string MessageData::rawData() const
 			// Restore 255 bytes data chunks
 			size_t i = 0;
 			for (; i < it->getData().length() / (uint8_t)UINT8_MAX; i++) {
-				buffer.append(std::to_string(it->getIndex()));
-				buffer.append(std::to_string((uint8_t)UINT8_MAX));
-				buffer.append(it->getData().substr(i * UINT8_MAX, UINT8_MAX));
+				buffer += (char)it->getIndex();
+				buffer += (char)UINT8_MAX;
+				buffer += it->getData().substr(i * UINT8_MAX, UINT8_MAX);
 			}
 			uint8_t tailLength = it->getData().length() % (uint8_t)UINT8_MAX;
-			buffer.append(std::to_string(it->getIndex()));
-			buffer.append(std::to_string(tailLength));
-			buffer.append(it->getData().substr(i * 255, tailLength));
+			buffer += (char)it->getIndex();
+			buffer += (char)tailLength;
+			buffer += it->getData().substr(i * 255, tailLength);
 		}
 	}
 

@@ -356,6 +356,9 @@ bool ConnectionInfo::_handlePairSetup(pollfd fds[2], Message& request)
 					(uint8_t*)secretKey->data, secretKey->length, 
 					(uint8_t*)info, strlen(info), (uint8_t*)controllerHash, 32);
 				if (i != 0) {
+#ifdef HAP_DEBUG
+					printf("ConnectionInfo::_handlePairSetup : hkdf verification falied.\n");
+#endif
 					// This will terminate the method
 					retval = false;
 					break;
@@ -368,6 +371,9 @@ bool ConnectionInfo::_handlePairSetup(pollfd fds[2], Message& request)
 					(uint8_t*)&controllerPublicKey.front(), (uint8_t*)&controllerSignature.front());
 
 				if (ed25519_err) {
+#ifdef HAP_DEBUG
+					printf("ConnectionInfo::_handlePairSetup : ed25519 verification falied.\n");
+#endif
 					// This will terminate the method
 					retval = false;
 					break;
@@ -429,7 +435,6 @@ bool ConnectionInfo::_handlePairSetup(pollfd fds[2], Message& request)
 
 					MessageDataRecord_ptr tlv8Record =
 						std::make_shared<MessageDataRecord>(1, tlv8RecordData, true);
-
 
 					content->addRecord(tlv8Record);
 				}
