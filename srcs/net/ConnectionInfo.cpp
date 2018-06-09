@@ -204,7 +204,7 @@ void ConnectionInfo::handlePairSetup() {
                     
 #ifdef HAP_DEBUG
 					printf("ConnectionInfo::handlePairSetup : corrupt TLv8 at M5\n");
-
+#ifdef HAP_NET_DEBUG
                     for(int j = 0; j < packageLen-16; j++)
                         printf("%X ", decryptedData[j]);
                     printf("\n");
@@ -218,6 +218,7 @@ void ConnectionInfo::handlePairSetup() {
                     for(int j = 0; j < 16; j++)
                         printf("%X ", mac[j]);
                     printf("\n");
+#endif
 #endif
                 } else {
                     /*
@@ -540,6 +541,9 @@ void ConnectionInfo::handlePairVerify() {
         char *repBuffer = 0;  int repLen = 0;
         response.getBinaryPtr(&repBuffer, &repLen);
         if (repBuffer) {
+			printf("ConnectionInfo::handlePairVerify : \n");
+			fwrite(repBuffer, 1, repLen, stdout);
+			printf("\n");
             write(subSocket, repBuffer, repLen);
             delete [] repBuffer;
         }

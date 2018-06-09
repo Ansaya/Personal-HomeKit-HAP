@@ -134,7 +134,7 @@ void HAPService::announce(BroadcastInfo *info) {
 		strlen(desc), 
 		desc);
 
-#ifdef HAP_DEBUG
+#ifdef HAP_NET_DEBUG
 	printf("Announce message:\n%s\n", reply);
 #endif
 
@@ -220,8 +220,11 @@ void HAPService::connectionLoop(ConnectionInfo* info)
 	do {
 		len = read(subSocket, info->buffer, 4096);
 #ifdef HAP_DEBUG
-		printf("HAPService::connectionLoop : received %d bytes from socket %d.\n"
-			"%s\n", len, subSocket, info->buffer);
+		printf("HAPService::connectionLoop : received %d bytes from socket %d.\n", 
+			len, subSocket);
+#ifdef HAP_NET_DEBUG
+		printf("%s\n", info->buffer);
+#endif
 #endif
 
 		Message msg(info->buffer);
@@ -298,8 +301,8 @@ TXTRecordRef HAPService::buildTXTRecord() {
 }
 
 void HAPService::handleAccessory(const char *request, unsigned int requestLen, char **reply, unsigned int *replyLen, ConnectionInfo *sender) {
-#ifdef HAP_DEBUG
-	printf("HAPService::handleAccessory : received request: %s\n", request);
+#ifdef HAP_NET_DEBUG
+	printf("HAPService::handleAccessory : received request: \n%s\n", request);
 #endif
 
 	int index = 5;
@@ -322,7 +325,7 @@ void HAPService::handleAccessory(const char *request, unsigned int requestLen, c
 	}
 	path[i] = 0;
 
-#ifdef HAP_DEBUG
+#ifdef HAP_NET_DEBUG
 	printf("HAPService::handleAccessory : path: %s\n", path);
 #endif
 
