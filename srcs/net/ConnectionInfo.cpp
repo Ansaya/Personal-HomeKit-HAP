@@ -138,6 +138,15 @@ void ConnectionInfo::_clientSocketLoop(int wakeFD)
 			break;
 		}
 
+#ifdef HAP_DEBUG
+		printf("ConnectionInfo::_clientSocketLoop : received %zd bytes from client %s.\n", 
+			dataLength, _socketName.c_str());
+#ifdef HAP_NET_DEBUG
+		fwrite(_buffer, 1, dataLength, stdout);
+		printf("\n");
+#endif
+#endif
+
 		std::string responseData;
 
 		if (!_verified) {
@@ -185,23 +194,16 @@ void ConnectionInfo::_clientSocketLoop(int wakeFD)
 
 			chacha20_encrypt(&chacha20, (const uint8_t *)&_buffer[2], (uint8_t *)&decryptData.front(), msgLen);
 
-#ifdef HAP_NET_DEBUG
-			printf("ConnectionInfo::_encryptedSocketLoop : request: \n%s\n"
-				"\tpacket length: %d\n"
-				"\tmessage length: %d\n",
-				decryptData.c_str(), len, decryptData.length());
-#endif
-
 			if (dataLength >= (2 + msgLen + 16)
 				&& memcmp((void *)verify, (void *)&_buffer[2 + msgLen], 16) == 0) {
 #ifdef HAP_DEBUG
-				printf("ConnectionInfo::_encryptedSocketLoop : data verified succesfully.\n");
+				printf("ConnectionInfo::_clientSocketLoop : data verified succesfully.\n");
 #endif
 			}
 			else {
 
 #ifdef HAP_DEBUG
-				printf("ConnectionInfo::_encryptedSocketLoop : passed-in data is not verified!\n");
+				printf("ConnectionInfo::_clientSocketLoop : passed-in data is not verified!\n");
 #ifdef HAP_NET_DEBUG
 				printf("\t");
 				for (int i = 0; i < 16; i++)
@@ -256,6 +258,10 @@ void ConnectionInfo::_clientSocketLoop(int wakeFD)
 #ifdef HAP_DEBUG
 		printf("ConnectionInfo::_clientSocketLoop : %d bytes sent "
 			"to client %s\n", writtenData, _socketName.c_str());
+#ifdef HAP_NET_DEBUG
+		fwrite(&responseData.front(), 1, responseData.length(), stdout);
+		printf("\n");
+#endif
 #endif
 
 		if (_verified.load())
@@ -731,12 +737,10 @@ Response_ptr ConnectionInfo::_handlePairVerify(Message& request)
 	return response;
 }
 
-#define HAP_NET_DEBUG
-
 std::string ConnectionInfo::_handleAccessory(const std::string& request)
 {
 #ifdef HAP_NET_DEBUG
-	printf("ConnectionInfo::_handleAccessory : received request: \n%s\n", request);
+	printf("ConnectionInfo::_handleAccessory : received request: \n%s\n", request.c_str());
 #endif
 
 	// Get HTTP request method
@@ -745,14 +749,20 @@ std::string ConnectionInfo::_handleAccessory(const std::string& request)
 	size_t contentBegin = request.find("\r\n\r\n") + 4;
 
 	std::string method = request.substr(0, methodEnd);
-	std::string path = request.substr(methodEnd + 2, pathEnd);
+	std::string path = request.substr(methodEnd + 2, pathEnd - methodEnd - 2);
 	std::string content = request.substr(contentBegin);
+
+#ifdef HAP_NET_DEBUG
+	printf("ConnectionInfo::_handleAccessory : parsed request : \n"
+		"\tMethod: %s\n\tPath: %s\n\tContent: %s\n", 
+		method.c_str(), path.c_str(), content.c_str());
+#endif
 
 	int statusCode = 0;
 	std::string responseContent;
 	const char *returnType = hapJsonType;
 
-	if (path == "/accessories") {
+	if (path == "accessories") {
 		//Publish the characterists of the accessories
 #ifdef HAP_DEBUG
 		printf("ConnectionInfo::_handleAccessory : accessories info requested.\n");
@@ -760,7 +770,7 @@ std::string ConnectionInfo::_handleAccessory(const std::string& request)
 		statusCode = 200;
 		responseContent = AccessorySet::getInstance().describe(this);
 	}
-	else if (path == "/pairings") {
+	else if (path == "pairings") {
 
 		Message msg(request.c_str(), request.length());
 		statusCode = 200;
@@ -806,7 +816,7 @@ std::string ConnectionInfo::_handleAccessory(const std::string& request)
 		//Pairing status change, so update
 		HAPService::getInstance().updatePairable();
 	}
-	else if (strncmp(path.c_str(), "/characteristics", 16) == 0) {
+	else if (strncmp(path.c_str(), "characteristics", 15) == 0) {
 		std::unique_lock<std::mutex> lock(AccessorySet::getInstance().accessoryMutex);
 
 #ifdef HAP_DEBUG
@@ -819,7 +829,7 @@ std::string ConnectionInfo::_handleAccessory(const std::string& request)
 			int iid = 0;
 
 			char indexBuffer[1000];
-			sscanf(path.c_str(), "/characteristics?id=%[^\n]", indexBuffer);
+			sscanf(path.c_str(), "characteristics?id=%[^\n]", indexBuffer);
 
 			statusCode = 404;
 
@@ -970,22 +980,20 @@ std::string ConnectionInfo::_handleAccessory(const std::string& request)
 	else {
 		//Error
 #ifdef HAP_DEBUG
-		printf("ConnectionInfo::_handleAccessory : error: unknown request\n");
-#ifdef HAP_NET_DEBUG
-		printf("\tRequest: %s\n"
-			"\tPath: %s\n", request, path);
-#endif
+		printf("ConnectionInfo::_handleAccessory : error: unknown request\n"
+			"\tMethod: %s\n\tPath: %s\n\tContent: %s\n",
+			method.c_str(), path.c_str(), content.c_str());
 #endif
 
 		statusCode = 404;
 	}
 
 	std::string response;
-	response += "HTTP\1.1 ";
+	response += "HTTP/1.1 ";
 	response += std::to_string(statusCode);
-	if (statusCode == 200) {
+	//if (statusCode == 200) {
 		response += " OK";
-	}
+	//}
 	response += "\r\nContent-Type: ";
 	response += returnType;
 	response += "\r\nContent-Length: ";
@@ -999,8 +1007,6 @@ std::string ConnectionInfo::_handleAccessory(const std::string& request)
 
 	return response;
 }
-
-#undef HAP_NET_DEBUG
 
 // 2ByteS(datalen) + data_buf + 16Bytes(Verfied Key)
 // Type_Data_Without_Length

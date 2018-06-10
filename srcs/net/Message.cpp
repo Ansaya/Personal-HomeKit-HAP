@@ -25,9 +25,9 @@ Message::Message(const char *rawData, size_t length)
 
 	// Get content length
 	size_t contentLength = strtoull(strstr(rawData, "Content-Length: ") + 16, NULL, 10);
-	const char* typeBegin = strstr(rawData, "Content-Type: ") + 14;
 
 	// Get content type
+	const char* typeBegin = strstr(rawData, "Content-Type: ") + 14;
 	size_t typeLength = strchr(typeBegin, '\r') - typeBegin;
 	_contentType = std::string(typeBegin, typeLength);
 
