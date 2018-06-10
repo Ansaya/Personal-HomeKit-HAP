@@ -47,7 +47,7 @@ void HAPService::setup(deviceType type)
 	SRP_initialize_library();
 	srand((unsigned int)time(NULL));
 
-	_keepAlive = new std::thread(&HAPService::keepAliveLoop, this);
+	//_keepAlive = new std::thread(&HAPService::keepAliveLoop, this);
 
 	TXTRecordRef txtRecord = buildTXTRecord();
 
@@ -100,22 +100,17 @@ void HAPService::handleConnection() {
 	if (clen == sizeof(struct sockaddr_in)) {
 		char buffer[128];
 		int res = getnameinfo((struct sockaddr *)&client_addr, clen, buffer, sizeof(buffer), NULL, 0, NI_NOFQDN);
-		socketName = std::string(buffer);
+		if(res == 0)
+			socketName = std::string(buffer);
 	}
 
-	ConnectionInfo* newConn = new ConnectionInfo();
-	newConn->subSocket = subSocket;
-	newConn->hostname = socketName;
+	ConnectionInfo* newConn = new ConnectionInfo(subSocket, socketName);
 
 	_connections.push_back(newConn);
 
 #ifdef HAP_DEBUG
 	printf("HAPService::handleConnection : New client connected: \"%d\"  %s\n", subSocket, socketName.c_str());
 #endif // HAP_DEBUG
-
-
-	newConn->thread = std::thread(&HAPService::connectionLoop, this, newConn);
-	newConn->thread.detach();
 }
 
 void HAPService::announce(BroadcastInfo *info) {
@@ -149,14 +144,14 @@ void HAPService::broadcastMessage(void *sender, char *resultData, size_t resultL
 
 	for (auto& conn : _connections) {
 
-		int socketNumber = conn->subSocket;
+		int socketNumber = conn->_socketFD;
 
-		if (socketNumber >= 0 && conn->connected && conn->numberOfMsgSend >= 0 && (conn->notify(sender) || sender == nullptr)) {
+		if (socketNumber >= 0 && conn->numberOfMsgSend >= 0 && (conn->notify(sender) || sender == nullptr)) {
 
 #ifdef HAP_DEBUG
 			printf("HAPService::broadcastMessage : sending %d byte message to client %d\n", resultLen, socketNumber);
 #endif
-			std::unique_lock<std::mutex> lock(conn->mutex);
+			std::unique_lock<std::mutex> lock(conn->_socketWrite);
 
 			chacha20_ctx chacha20;
 			bzero(&chacha20, sizeof(chacha20));
@@ -206,69 +201,6 @@ void HAPService::keepAliveLoop()
 	}
 }
 
-void HAPService::connectionLoop(ConnectionInfo* info)
-{
-	int subSocket = info->subSocket;    
-	ssize_t len;
-	
-	if (subSocket < 0) return;
-
-#ifdef HAP_DEBUG
-	printf("HAPService::connectionLoop : new client %d.\n", subSocket);
-#endif
-
-	do {
-		len = read(subSocket, info->buffer, 4096);
-#ifdef HAP_DEBUG
-		printf("HAPService::connectionLoop : received %d bytes from socket %d.\n", 
-			len, subSocket);
-#ifdef HAP_NET_DEBUG
-		printf("%s\n", info->buffer);
-#endif
-#endif
-
-		Message msg(info->buffer);
-		if (len > 0) {
-			if (!strcmp(msg.directory, "pair-setup")) {
-
-#ifdef HAP_DEBUG
-				printf("HAPService::connectionLoop : pair setup required for socket %d.\n", subSocket);
-#endif
-
-				info->handlePairSetup();
-
-				// Update configuration
-				_currentConfiguration++;
-				updatePairable();
-			}
-			else if (!strcmp(msg.directory, "pair-verify")) {
-#ifdef HAP_DEBUG
-					printf("HAPService::connectionLoop : pair verify required for socket %d.\n", subSocket);
-#endif
-				info->handlePairVerify();
-
-				//When pair-verify done, we handle Accessory Request
-				info->handleAccessoryRequest();
-			}
-			else if (!strcmp(msg.directory, "identify")) {
-				close(subSocket);
-			}
-		}
-
-	} while (len > 0);
-
-	close(subSocket);
-#ifdef HAP_DEBUG
-	printf("HAPService::connectionLoop : %d client disconnected.\n", subSocket);
-#endif
-
-	info->subSocket = -1;
-
-	std::remove_if(_connections.begin(), _connections.end(), [info](const ConnectionInfo* connInfo) {
-		return connInfo == info;
-	});
-}
-
 void HAPService::updatePairable() {
 	TXTRecordRef txtRecord = buildTXTRecord();
 	DNSServiceUpdateRecord(_netService, NULL, 0, TXTRecordGetLength(&txtRecord), TXTRecordGetBytesPtr(&txtRecord), 0);
@@ -298,324 +230,4 @@ TXTRecordRef HAPService::buildTXTRecord() {
 	int len = sprintf(buf, "%d", _type);
 	TXTRecordSetValue(&txtRecord, "ci", len, buf);    //1 for MFI product
 	return txtRecord;
-}
-
-void HAPService::handleAccessory(const char *request, unsigned int requestLen, char **reply, unsigned int *replyLen, ConnectionInfo *sender) {
-#ifdef HAP_NET_DEBUG
-	printf("HAPService::handleAccessory : received request: \n%s\n", request);
-#endif
-
-	int index = 5;
-	char method[5];
-	{
-		//Read method
-		method[4] = 0;
-		bcopy(request, method, 4);
-		if (method[3] == ' ') {
-			method[3] = 0;
-			index = 4;
-		}
-	}
-
-	char path[1024];
-	int i;
-	// TODO: use requestLen 
-	for (i = 0; i < 1024 && request[index] != ' '; i++, index++) {
-		path[i] = request[index];
-	}
-	path[i] = 0;
-
-#ifdef HAP_NET_DEBUG
-	printf("HAPService::handleAccessory : path: %s\n", path);
-#endif
-
-	// TODO: fix this shit
-	const char *dataPtr = request;
-	while (true) {
-		dataPtr = &dataPtr[1];
-		if (dataPtr[0] == '\r' && dataPtr[1] == '\n' && dataPtr[2] == '\r' && dataPtr[3] == '\n') break;
-	}
-
-	dataPtr += 4;
-
-	char *replyData = nullptr;  
-	unsigned short replyDataLen = 0;
-
-	int statusCode = 0;
-
-	const char *protocol = "HTTP/1.1";
-	const char *returnType = hapJsonType;
-
-	if (strcmp(path, "/accessories") == 0) {
-		//Publish the characterists of the accessories
-#ifdef HAP_DEBUG
-		printf("HAPService::handleAccessory : accessories info requested.\n");
-#endif
-		statusCode = 200;
-		std::string desc = AccessorySet::getInstance().describe(sender);
-		replyDataLen = desc.length();
-		replyData = new char[replyDataLen + 1];
-		bcopy(desc.c_str(), replyData, replyDataLen);
-		replyData[replyDataLen] = 0;
-	}
-	else if (strcmp(path, "/pairings") == 0) {
-
-		Message msg(request);
-		statusCode = 200;
-#ifdef HAP_DEBUG
-		printf("HAPService::handleAccessory : pairings : %d\n", *msg.data.dataPtrForIndex(0));
-#endif
-		if (*msg.data.dataPtrForIndex(0) == 3) {
-			//Pairing with new user
-
-#ifdef HAP_DEBUG
-			printf("HAPService::handleAccessory : new user pairing\n");
-#endif
-
-			KeyRecord controllerRec;
-			bcopy(msg.data.dataPtrForIndex(3), controllerRec.publicKey, 32);
-			bcopy(msg.data.dataPtrForIndex(1), controllerRec.controllerID, 36);
-			KeyController::getInstance().addControllerKey(controllerRec);
-
-			MessageDataRecord drec;
-			drec.activate = true; drec.data = new char[1]; *drec.data = 2;
-			drec.index = 6; drec.length = 1;
-
-			MessageData data;
-			data.addRecord(drec);
-			data.rawData((const char **)&replyData, &replyDataLen);
-			returnType = pairingTlv8Type;
-			statusCode = 200;
-		}
-		else {
-
-#ifdef HAP_DEBUG
-			printf("HAPService::handleAccessory : delete user pairing.\n");
-#endif
-
-			KeyRecord controllerRec;
-			bcopy(msg.data.dataPtrForIndex(1), controllerRec.controllerID, 36);
-			KeyController::getInstance().removeControllerKey(controllerRec);
-
-			MessageDataRecord drec;
-			drec.activate = true;
-			drec.data = new char[1];
-			*drec.data = 2;
-			drec.index = 6;
-			drec.length = 1;
-
-			MessageData data;
-			data.addRecord(drec);
-			data.rawData((const char **)&replyData, &replyDataLen);
-			returnType = pairingTlv8Type;
-			statusCode = 200;
-		}
-		//Pairing status change, so update
-		updatePairable();
-	}
-	else if (strncmp(path, "/characteristics", 16) == 0) {
-		std::unique_lock<std::mutex> lock(AccessorySet::getInstance().accessoryMutex);
-
-#ifdef HAP_DEBUG
-		printf("HAPService::handleAccessory : characteristics info requested.\n");
-#endif
-
-		if (strncmp(method, "GET", 3) == 0) {
-			//Read characteristics
-			int aid = 0;
-			int iid = 0;
-
-			char indexBuffer[1000];
-			sscanf(path, "/characteristics?id=%[^\n]", indexBuffer);
-
-			statusCode = 404;
-
-			std::string result = "[";
-
-			while (strlen(indexBuffer) > 0) {
-
-#ifdef HAP_DEBUG
-				printf("HAPService::handleAccessory : characteristics : get %s\n", indexBuffer);
-#endif
-
-				char temp[1000];
-				//Initial the temp
-				temp[0] = 0;
-				sscanf(indexBuffer, "%d.%d%[^\n]", &aid, &iid, temp);
-
-				strncpy(indexBuffer, temp, 1000);
-
-				//Trim comma
-				if (indexBuffer[0] == ',') {
-					indexBuffer[0] = '0';
-				}
-
-				Accessory_ptr a = AccessorySet::getInstance().accessoryAtIndex(aid);
-				if (a != nullptr) {
-					Characteristics *c = a->characteristicsAtIndex(iid);
-					if (c != nullptr) {
-#ifdef HAP_DEBUG
-						printf("HAPService::handleAccessory : characteristics : get %d . %d\n", aid, iid);
-#endif
-
-						std::string s[3] = { std::to_string(aid), std::to_string(iid), c->value(sender) };
-						std::string k[3] = { "aid", "iid", "value" };
-						if (result.length() != 1) {
-							result += ",";
-						}
-
-						std::string _result = dictionaryWrap(k, s, 3);
-						result += _result;
-					}
-
-				}
-			}
-
-			result += "]";
-
-			std::string d = "characteristics";
-			result = dictionaryWrap(&d, &result, 1);
-
-			replyDataLen = result.length();
-			replyData = new char[replyDataLen + 1];
-			replyData[replyDataLen] = 0;
-			bcopy(result.c_str(), replyData, replyDataLen);
-			statusCode = 200;
-
-		}
-		else if (strncmp(method, "PUT", 3) == 0) {
-			//Change characteristics
-#ifdef HAP_DEBUG
-			printf("HAPService::handleAccessory : characteristics : PUT\n");
-#endif
-
-			char characteristicsBuffer[1000];
-			sscanf(dataPtr, "{\"characteristics\":[{%[^]]s}", characteristicsBuffer);
-
-			char *buffer2 = characteristicsBuffer;
-			while (strlen(buffer2) && statusCode != 400) {
-				bool reachLast = false; bool updateNotify = false;
-				char *buffer1;
-				buffer1 = strtok_r(buffer2, "}", &buffer2);
-				if (*buffer2 != 0) buffer2 += 2;
-
-				int aid = 0;
-				int iid = 0;
-				char value[16];
-				int result = sscanf(buffer1, "\"aid\":%d,\"iid\":%d,\"value\":%s", &aid, &iid, value);
-				if (result == 2) {
-					sscanf(buffer1, "\"aid\":%d,\"iid\":%d,\"ev\":%s", &aid, &iid, value);
-					updateNotify = true;
-				}
-				else if (result == 0) {
-					result = sscanf(buffer1, "\"remote\":true,\"value\":%[^,],\"aid\":%d,\"iid\":%d", value, &aid, &iid);
-					if (result == 2) {
-						sscanf(buffer1, "\"remote\":true,\"aid\":%d,\"iid\":%d,\"ev\":%s", &aid, &iid, value);
-						updateNotify = true;
-					}
-					sender->relay = true;
-				}
-
-#ifdef HAP_DEBUG
-				printf("HAPService::handleAccessory : characteristics : change %d . %d \n", aid, iid);
-#endif
-
-				Accessory_ptr a = AccessorySet::getInstance().accessoryAtIndex(aid);
-				if (a == nullptr) {
-					statusCode = 400;
-#ifdef HAP_DEBUG
-					printf("HAPService::handleAccessory : characteristics : error : accessory %d not found.\n", aid);
-#endif
-				}
-				else {
-					Characteristics *c = a->characteristicsAtIndex(iid);
-
-					if (c == nullptr) {
-						statusCode = 400;
-#ifdef HAP_DEBUG
-						printf("HAPService::handleAccessory : characteristics : error : %d.%d not found.\n", aid, iid);
-#endif
-					}
-					else {
-						if (updateNotify) {
-#ifdef HAP_DEBUG
-							printf("HAPService::handleAccessory : characteristics : notify %d . %d -> %s\n", aid, iid, value);
-#endif
-							if (c->notifiable()) {
-								if (strncmp(value, "1", 1) == 0 || strncmp(value, "true", 4) == 0)
-									sender->addNotify(c, aid, iid);
-								else
-									sender->removeNotify(c);
-
-								statusCode = 204;
-							}
-							else {
-								statusCode = 400;
-							}
-						}
-						else {
-#ifdef HAP_DEBUG
-							printf("HAPService::handleAccessory : characteristics : change %d . %d -> %s\n", aid, iid, value);
-#endif
-							if (c->writable()) {
-								c->setValue(value, sender);
-
-								char *broadcastTemp = new char[1024];
-								snprintf(broadcastTemp, 1024, "{\"characteristics\":[{%s}]}", buffer1);
-								BroadcastInfo * info = new BroadcastInfo;
-								info->sender = c;
-								info->desc = broadcastTemp;
-
-								std::thread t = std::thread(&HAPService::announce, this, info);
-								t.detach();
-
-								statusCode = 204;
-							}
-							else {
-								statusCode = 400;
-							}
-						}
-					}
-
-				}
-
-			}
-
-		}
-		else {
-			return;
-		}
-
-	}
-	else {
-		//Error
-#ifdef HAP_DEBUG
-		printf("HAPService::handleAccessory : error: unknown request\n\tRequest: %s\nPath: %s\n", request, path);
-#endif
-
-		statusCode = 404;
-	}
-
-	//Calculate the length of header
-	char * tmp = new char[256];
-	bzero(tmp, 256);
-	int len = snprintf(tmp, 256, "%s %d OK\r\nContent-Type: %s\r\nContent-Length: %u\r\n\r\n", protocol, statusCode, returnType, replyDataLen);
-	delete[] tmp;
-
-	//replyLen should omit the '\0'.
-	(*replyLen) = len + replyDataLen;
-	//reply should add '\0', or the printf is incorrect
-	*reply = new char[*replyLen + 1];
-	bzero(*reply, *replyLen + 1);
-	snprintf(*reply, len + 1, "%s %d OK\r\nContent-Type: %s\r\nContent-Length: %u\r\n\r\n", protocol, statusCode, returnType, replyDataLen);
-
-	if (replyData) {
-		bcopy(replyData, &(*reply)[len], replyDataLen);
-		delete[] replyData;
-	}
-
-#ifdef HAP_DEBUG
-	printf("HAPService::handleAccessory : crafted reply : %s\n", reply);
-#endif
-
 }

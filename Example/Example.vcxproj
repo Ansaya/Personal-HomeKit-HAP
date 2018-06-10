@@ -67,12 +67,14 @@
     <MultiProcNumber>4</MultiProcNumber>
     <LibraryPath>$(LibraryPath)</LibraryPath>
     <RemoteProjectDir>$(RemoteRootDir)/$(ProjectName)</RemoteProjectDir>
+    <RemoteCCompileToolExe>gcc</RemoteCCompileToolExe>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
     <IncludePath>$(IncludePath)</IncludePath>
     <MultiProcNumber>4</MultiProcNumber>
     <LibraryPath>$(LibraryPath)</LibraryPath>
     <RemoteProjectDir>$(RemoteRootDir)/$(ProjectName)</RemoteProjectDir>
+    <RemoteCCompileToolExe>gcc</RemoteCCompileToolExe>
   </PropertyGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />

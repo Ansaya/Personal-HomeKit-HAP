@@ -54,16 +54,11 @@ namespace net {
 
 		void keepAliveLoop();
 
-		void connectionLoop(ConnectionInfo* info);
-
-		void updatePairable();
-
 		TXTRecordRef buildTXTRecord();
 
-		friend void ConnectionInfo::handleAccessoryRequest();
+		friend class ConnectionInfo;
 
-		void handleAccessory(const char *request, unsigned int requestLen, char **reply, unsigned int *replyLen, ConnectionInfo *sender);
-
+		void updatePairable();
 	};
 
 }

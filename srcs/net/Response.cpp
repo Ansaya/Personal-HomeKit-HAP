@@ -1,38 +1,31 @@
 #include <net/Response.h>
 
-#include <cstdio>
-#include <cstring>
-
 using namespace hap::net;
 
-Response::Response(unsigned short _responseCode) {
-	responseCode = _responseCode;
+Response::Response(uint16_t responseCode, ConstMessageData_ptr content) 
+	: _responseCode(responseCode), _content(content)
+{
 }
 
-std::string Response::responseType() {
-	switch (responseCode) {
-	case 200:
-		return "OK";
-	default:
-		return "";
-	}
+Response::Response(const Response& copy) : _responseCode(copy._responseCode)
+{
+	_content = std::make_shared<const MessageData>(*copy._content);
 }
 
-static inline void int2str(int i, char *s) { sprintf(s, "%d", i); }
+std::string Response::getResponse()
+{
+	std::string content = _content->rawData();
 
-void Response::getBinaryPtr(char **buffer, int *contentLength) {
-	char tempCstr[5];   int2str(responseCode, tempCstr);
-	std::string temp = "HTTP/1.1 ";
-	temp += tempCstr + (" " + responseType());
-	temp += "\r\nContent-Type: application/pairing+tlv8\r\nContent-Length: ";
-	const char *dataPtr;    unsigned short dataLen;
-	data.rawData(&dataPtr, &dataLen);
-	int2str(dataLen, tempCstr);
-	temp += tempCstr;
-	temp += "\r\n\r\n";
-	*buffer = new char[temp.length() + dataLen];
-	bcopy(temp.c_str(), *buffer, temp.length());
-	bcopy(dataPtr, &((*buffer)[temp.length()]), dataLen);
-	*contentLength = temp.length() + dataLen;
-	delete[] dataPtr;
+	std::string response;
+	response += "HTTP/1.1 ";
+	response += std::to_string(_responseCode);
+	if (_responseCode == 200)
+		response += " OK";
+	response += "\r\nContent-Type: application/pairing+tlv8\r\n"
+		"Content-Length: ";
+	response += std::to_string(content.length());
+	response += "\r\n\r\n";
+	response += content;
+
+	return response;
 }

@@ -3,22 +3,36 @@
 
 #include "MessageData.h"
 
+#include <memory>
+#include <string>
+
 namespace hap {
 
 namespace net {
 
 	class Message {
-		char method[5];
-		char type[40];
-
 	public:
-		char directory[20];
-		MessageData data;
+		Message(const char *rawData, size_t length);
 
-		Message(const char *rawData);
+		Message(const Message& copy);
 
-		void getBinaryPtr(char **buffer, int *contentLength);
+		~Message();
+
+		const std::string &getMethod() const;
+		const std::string &getPath() const;
+		const std::string &getContentType() const;
+		ConstMessageData_ptr getContent() const;
+
+		std::string getOriginalRequest();
+
+	private:
+		std::string _method;
+		std::string _path;
+		std::string _contentType;
+		MessageData_ptr _content;
 	};
+
+	typedef std::shared_ptr<Message> Message_ptr;
 
 }
 

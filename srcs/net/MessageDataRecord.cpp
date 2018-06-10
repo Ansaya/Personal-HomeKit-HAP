@@ -1,24 +1,37 @@
 #include <net/MessageDataRecord.h>
 
-#include <strings.h>
-
 using namespace hap::net;
 
-MessageDataRecord &MessageDataRecord::operator=(const MessageDataRecord& r) {
-	index = r.index;
-	activate = r.activate;
-	length = r.length;
-
-	// TODO: why is data deleted before copy?
-	if (data)
-		delete[] data;
-	
-	
-	data = new char[length];
-	bcopy(r.data, data, length);
-	return *this;
+MessageDataRecord::MessageDataRecord(uint8_t index, const std::string& data, bool activate)
+	: _index(index), _content(data), _active(activate)
+{
 }
 
-MessageDataRecord::~MessageDataRecord() {
-	if (length) delete[] data;
+MessageDataRecord::~MessageDataRecord()
+{
+}
+
+uint8_t MessageDataRecord::getIndex() const
+{
+	return _index;
+}
+
+const std::string& MessageDataRecord::getData() const
+{
+	return _content;
+}
+
+void MessageDataRecord::pushData(const std::string& data)
+{
+	_content.append(data);
+}
+
+bool MessageDataRecord::isActive() const
+{
+	return _active;
+}
+
+void MessageDataRecord::setActive(bool state)
+{
+	_active = state;
 }

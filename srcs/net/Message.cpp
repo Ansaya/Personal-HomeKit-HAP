@@ -1,84 +1,88 @@
 #include <net/Message.h>
 
-#include <cstdio>
-#include <cstdlib>
 #include <cstring>
 
 using namespace hap::net;
 
-static const char *copyLine(const char *rawData, char *destination) {
-	int i;
-	for (i = 0; rawData[i] != '\r' && rawData[i] != 0; i++) {
-		destination[i] = rawData[i];
-	}
-	i++;
-	if (rawData[i] == '\n')
-		return &rawData[i + 1];
-	else return &rawData[i];
+Message::Message(const char *rawData, size_t length)
+{
+	// Get HTTP request method
+	size_t methodEnd = strchr(rawData, ' ') - rawData;
+
+	_method = std::string(rawData, methodEnd);
+
+	rawData += methodEnd + 1;
+
+	// Get HTTP request path
+
+	// Skip first slash of request path
+	rawData++;
+
+	size_t pathEnd = strchr(rawData, ' ') - rawData;
+
+	_path = std::string(rawData, pathEnd);
+
+
+	// Get content length
+	size_t contentLength = strtoull(strstr(rawData, "Content-Length: ") + 16, NULL, 10);
+
+	// Get content type
+	const char* typeBegin = strstr(rawData, "Content-Type: ") + 14;
+	size_t typeLength = strchr(typeBegin, '\r') - typeBegin;
+	_contentType = std::string(typeBegin, typeLength);
+
+	// Get content inside relative container
+	_content = std::make_shared<MessageData>(std::string(strstr(rawData, "\r\n\r\n") + 4, contentLength));
 }
 
-static const char *skipTillChar(const char *ptr, const char target) {
-	for (; (*ptr) != 0 && (*ptr) != target; ptr++);
-	ptr++;
-	return ptr;
+Message::Message(const Message& copy)
+{
+	_method = copy._method;
+	_path = copy._path;
+	_contentType = copy._contentType;
+	_content = std::make_shared<MessageData>(*copy._content);
 }
 
-Message::Message(const char *rawData) {
-	strcpy(method, "POST");
-
-	const char *ptr = rawData;
-	for (int i = 0; (*ptr) != 0 && (*ptr) != ' '; ptr++, i++) {
-		method[i] = (*ptr);
-		method[i + 1] = 0;
-	} ptr += 2;
-
-	//Copy message directory
-	for (int i = 0; (*ptr) != 0 && (*ptr) != ' '; ptr++, i++) {
-		directory[i] = (*ptr);
-		directory[i + 1] = 0;
-	}
-
-	ptr = skipTillChar(ptr, '\n');
-
-	char buffer[1024];
-	const char *dptr = ptr;
-	for (int i = 0; i < 19; i++) {
-		bzero(buffer, 1024);
-		dptr = copyLine(dptr, buffer);
-	}
-
-	//Reject host
-	if (strncmp(ptr, "Host", 4) == 0) {
-		ptr = skipTillChar(ptr, '\n');
-	}
-
-	//Get the length of content
-	//Skip to the content-type
-	ptr = skipTillChar(ptr, ':'); ptr++;
-	unsigned int dataSize = (unsigned int)strtol(ptr, (char **)&ptr, 10);
-
-	//Get the type of content
-	//Skip to the content-length
-	ptr = skipTillChar(ptr, ':');  ptr += 2;
-	for (int i = 0; (*ptr) != 0 && (*ptr) != '\r'; ptr++, i++) {
-		type[i] = (*ptr);
-		type[i + 1] = 0;
-	}
-	ptr += 4;
-
-	//Data
-	data = MessageData(ptr, dataSize);
-
+Message::~Message()
+{
 }
 
-void Message::getBinaryPtr(char **buffer, int *contentLength) {
-	const char *_data; unsigned short dataSize;
-	data.rawData(&_data, &dataSize);
-	(*buffer) = new char[1024];
-	(*contentLength) = snprintf((*buffer), 1024, "%s /%s HTTP/1.1\r\nContent-Length: %hu\r\nContent-Type: %s\r\n\r\n", method, directory, dataSize, type);
-	for (int i = 0; i < dataSize; i++) {
-		(*buffer)[*contentLength + i] = _data[i];
-	}
-	(*contentLength) += dataSize;
-	(*buffer)[*contentLength] = 0;
+const std::string &Message::getMethod() const
+{
+	return _method;
+}
+
+const std::string &Message::getPath() const
+{
+	return _path;
+}
+
+const std::string &Message::getContentType() const
+{
+	return _contentType;
+}
+
+ConstMessageData_ptr Message::getContent() const
+{
+	return _content;
+}
+
+std::string Message::getOriginalRequest()
+{
+	std::string request;
+	request += _method;
+	request += " ";
+	request += _path;
+	request += " HTTP/1.1\r\n";
+	request += "Content-Type: ";
+	request += _contentType;
+	request += "\r\nContent-Length: ";
+
+	std::string content = _content->rawData();
+
+	request += std::to_string(content.length());
+	request += "\r\n\r\n";
+	request += content;
+
+	return request;
 }
