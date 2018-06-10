@@ -2,6 +2,7 @@
 #define HAP_NET_CONNECTION_INFO
 
 #include "Message.h"
+#include "Response.h"
 
 #include <atomic>
 #include <cstdint>
@@ -51,16 +52,15 @@ private:
 	std::thread _clientSocket;
 	
 	std::atomic_bool _connected;
+	std::atomic_bool _verified;
 
 	std::list<void*> _notificationList;
 
 	void _clientSocketLoop(int wakeFD);
 
-	bool _handlePairSetup(pollfd fds[2], Message& request);
+	Response_ptr _handlePairSetup(Message& request);
 
-	bool _handlePairVerify(pollfd fds[2], Message& request);
-
-	bool _encryptedSocketLoop(pollfd fds[2]);
+	Response_ptr _handlePairVerify(Message& request);
 
 	std::string _handleAccessory(const std::string& request);
 };
