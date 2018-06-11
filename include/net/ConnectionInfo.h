@@ -18,27 +18,15 @@ namespace net {
 
 class ConnectionInfo {
 public:
-    bool relay = false;
-
-    char identity[37];
-    
-    uint8_t controllerToAccessoryKey[32];
-    uint8_t accessoryToControllerKey[32];
-    unsigned long long numberOfMsgRec = 0;
-    unsigned long long numberOfMsgSend = 0;
-
-	int _socketFD;
-	std::mutex _socketWrite;
-
 	ConnectionInfo(int socketFD, const std::string& socketName);
 
 	~ConnectionInfo();
 
-    void Poly1305_GenKey(const unsigned char * key, uint8_t * buf, uint16_t len, bool dataWithLength, char* verify);
+	void send(const std::string& data);
 
 	void addNotify(void *target, int aid, int iid);
 
-	bool notify(void *target);
+	bool isNotified(void *target);
 
 	void removeNotify(void *target);
 
@@ -46,13 +34,19 @@ public:
 
 private:
 	int _wakeFD;
-
+	int _socketFD;
 	const std::string _socketName;
 	char _buffer[4096];
 	std::thread _clientSocket;
-	
+	std::mutex _socketWrite;
 	std::atomic_bool _connected;
 	std::atomic_bool _verified;
+	uint64_t _nonceReceive = 0;
+	uint64_t _nonceSend = 0;
+
+	char identity[37];
+	uint8_t controllerToAccessoryKey[32];
+	uint8_t accessoryToControllerKey[32];
 
 	std::list<void*> _notificationList;
 
@@ -63,6 +57,12 @@ private:
 	Response_ptr _handlePairVerify(Message& request);
 
 	std::string _handleAccessory(const std::string& request);
+
+	std::string encrypt(const std::string& data, uint8_t nonce[8], const uint8_t* key, uint8_t keyLength, bool dataOnly) const;
+
+	std::string decrypt(const char* encryptedData, uint16_t encryptedDataLength, uint8_t nonce[8], const uint8_t* key, uint8_t keyLength, bool dataOnly) const;
+
+	void Poly1305_GenKey(const uint8_t * key, uint8_t * buf, uint16_t len, bool dataWithLength, uint8_t* verify) const;
 };
 
 }

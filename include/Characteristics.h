@@ -20,14 +20,11 @@ public:
     int iid;
 	std::function<std::string(net::ConnectionInfo* sender)> perUserQuery;
 
-    Characteristics(char_type _type, permission _premission): type(_type), premission(_premission) {}
+	Characteristics(char_type _type, permission _premission);
     
 	virtual std::string value(net::ConnectionInfo *sender) = 0;
     
-	void setValue(std::string str) {
-        setValue(str, nullptr);
-		notify();
-    }
+	void setValue(std::string str);
     
 	virtual void setValue(std::string str, net::ConnectionInfo *sender) = 0;
     

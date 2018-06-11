@@ -32,7 +32,7 @@ using namespace hap::net;
 static const char hapJsonType[] = "application/hap+json";
 static const char pairingTlv8Type[] = "application/pairing+tlv8";
 
-static const unsigned char modulusStr[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xC9, 
+static const uint8_t modulusStr[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xC9, 
 	0x0F, 0xDA, 0xA2, 0x21, 0x68, 0xC2, 0x34, 0xC4, 0xC6, 0x62, 0x8B, 0x80, 0xDC, 0x1C, 0xD1, 0x29, 
 	0x02, 0x4E, 0x08, 0x8A, 0x67, 0xCC, 0x74, 0x02, 0x0B, 0xBE, 0xA6, 0x3B, 0x13, 0x9B, 0x22, 0x51, 
 	0x4A, 0x08, 0x79, 0x8E, 0x34, 0x04, 0xDD, 0xEF, 0x95, 0x19, 0xB3, 0xCD, 0x3A, 0x43, 0x1B, 0x30, 
@@ -58,13 +58,13 @@ static const unsigned char modulusStr[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
 	0xDB, 0x5B, 0xFC, 0xE0, 0xFD, 0x10, 0x8E, 0x4B, 0x82, 0xD1, 0x20, 0xA9, 0x3A, 0xD2, 0xCA, 0xFF, 
 	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
-static const unsigned char curveBasePoint[] = { 0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+static const uint8_t curveBasePoint[] = { 0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
-static const unsigned char generator[1] = { 0x05 };
+static const uint8_t generator[1] = { 0x05 };
 
-static const unsigned char accessorySecretKey[32] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xC9, 
+static const uint8_t accessorySecretKey[32] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xC9, 
 	0x0F, 0xDA, 0xA2, 0x21, 0x68, 0xC2, 0x34, 0xC4, 0xC6, 0x62, 0x8B, 0x80, 0xDC, 0x1C, 0xD1, 0x29, 
 	0x02, 0x4E, 0x08, 0x8A, 0x67, 0xCC, 0x74 };
 
@@ -91,13 +91,57 @@ ConnectionInfo::~ConnectionInfo()
 		int retval = write(_wakeFD, &c, 1);
 		if (retval == -1) {
 #ifdef HAP_DEBUG
-			printf("ConnectionInfo::~ConnectionInfo : error cancelling client socket thread.\n");
+			printf("ConnectionInfo::~ConnectionInfo : error cancelling client "
+				"socket thread for client %s.\n", _socketName.c_str());
 #endif // HAP_DEBUG
 			return;
 		}
 	}
 
 	_clientSocket.join();
+}
+
+void ConnectionInfo::send(const std::string& data)
+{
+	if (!_connected.load())
+		return;
+
+	std::unique_lock<std::mutex> writeLock(_socketWrite);
+
+	std::string encryptedData = encrypt(data, (uint8_t*)&_nonceSend, 
+		accessoryToControllerKey, sizeof(accessoryToControllerKey), false);
+	_nonceSend++;
+
+	write(_socketFD, &encryptedData.front(), encryptedData.length());
+}
+
+void ConnectionInfo::addNotify(void *target, int aid, int iid)
+{
+	_notificationList.push_back(target);
+
+#ifdef HAP_DEBUG
+	printf("ConnectionInfo::addNotify : add notify %s to %d.%d.\n", identity, aid, iid);
+#endif
+}
+
+bool ConnectionInfo::isNotified(void *target)
+{
+	for (auto& it : _notificationList)
+		if (it == target)
+			return true;
+
+	return false;
+}
+
+void ConnectionInfo::removeNotify(void *target)
+{
+	std::remove_if(_notificationList.begin(), _notificationList.end(),
+		[target](const void * v) { return v == target; });
+}
+
+void ConnectionInfo::clearNotify()
+{
+	_notificationList.clear();
 }
 
 void ConnectionInfo::_clientSocketLoop(int wakeFD)
@@ -172,30 +216,11 @@ void ConnectionInfo::_clientSocketLoop(int wakeFD)
 			// Request encrypted
 
 			// Decrypt request
-			uint16_t msgLen = (uint8_t)_buffer[1] * 256 + (uint8_t)_buffer[0];
-			std::string decryptData(msgLen, 0);
+			std::string data = decrypt(_buffer, dataLength, (uint8_t*)&_nonceReceive, 
+				controllerToAccessoryKey, sizeof(controllerToAccessoryKey), false);
+			_nonceReceive++;
 
-			chacha20_ctx chacha20;
-			bzero(&chacha20, sizeof(chacha20));
-
-			chacha20_setup(&chacha20, (const uint8_t *)controllerToAccessoryKey, 32, (uint8_t *)&numberOfMsgRec);
-			numberOfMsgRec++;
-
-			char temp[64];
-			bzero(temp, 64);
-			char temp2[64];
-			bzero(temp2, 64);
-			chacha20_encrypt(&chacha20, (const uint8_t*)temp, (uint8_t *)temp2, 64);
-
-			//Ploy1305 key
-			char verify[16];
-			bzero(verify, 16);
-			Poly1305_GenKey((const unsigned char *)temp2, (uint8_t *)_buffer, msgLen, true, verify);
-
-			chacha20_encrypt(&chacha20, (const uint8_t *)&_buffer[2], (uint8_t *)&decryptData.front(), msgLen);
-
-			if (dataLength >= (2 + msgLen + 16)
-				&& memcmp((void *)verify, (void *)&_buffer[2 + msgLen], 16) == 0) {
+			if (!data.empty()) {
 #ifdef HAP_DEBUG
 				printf("ConnectionInfo::_clientSocketLoop : data verified succesfully.\n");
 #endif
@@ -204,45 +229,19 @@ void ConnectionInfo::_clientSocketLoop(int wakeFD)
 
 #ifdef HAP_DEBUG
 				printf("ConnectionInfo::_clientSocketLoop : passed-in data is not verified!\n");
-#ifdef HAP_NET_DEBUG
-				printf("\t");
-				for (int i = 0; i < 16; i++)
-					printf("%ud ", verify[i]);
-				printf("\n\t");
-				for (int i = 0; i < 16; i++)
-					printf("%ud ", _buffer[2 + msgLen + i]);
-				printf("\n\t");
-
-				unsigned long long numberOfMsgRec_ = numberOfMsgRec - 1;
-				chacha20_setup(&chacha20, (const uint8_t *)controllerToAccessoryKey, 32, (uint8_t *)&numberOfMsgRec_);
-				chacha20_encrypt(&chacha20, (const uint8_t*)temp, (uint8_t *)temp2, 64);
-				Poly1305_GenKey((const unsigned char *)temp, (uint8_t *)_buffer, msgLen, true, verify);
-				for (int i = 0; i < 16; i++)
-					printf("%ud ", verify[i]);
-				printf("\n");
 #endif
-#endif
+				memset(_buffer, 0, sizeof(_buffer));
 				continue;
 			}
 
 			//Output return
-			std::string responseContent = _handleAccessory(decryptData);
-
-			//18 = 2(resultLen) + 16(poly1305 verify key)
-			responseData = std::string(2 + responseContent.length() + 16, 0);
-			responseData[0] = responseContent.length() % 256;
-			responseData[1] = (responseContent.length() - (uint8_t)responseData[0]) / 256;
+			std::string responseContent = _handleAccessory(data);
 
 			_socketWrite.lock();
 
-			chacha20_setup(&chacha20, (const uint8_t *)accessoryToControllerKey, 32, (uint8_t *)&numberOfMsgSend);
-			numberOfMsgSend++;
-
-			chacha20_encrypt(&chacha20, (const uint8_t*)temp, (uint8_t *)temp2, 64);
-			chacha20_encrypt(&chacha20, (uint8_t*)&responseContent.front(), (uint8_t*)&responseData[2], responseContent.length());
-
-			Poly1305_GenKey((uint8_t*)temp2, (uint8_t *)&responseData.front(), responseContent.length(), true, verify);
-			memcpy((unsigned char*)&responseData[2 + responseContent.length()], verify, 16);
+			responseData = encrypt(responseContent, (uint8_t*)&_nonceSend, 
+				accessoryToControllerKey, sizeof(accessoryToControllerKey), false);
+			_nonceSend++;
 		}
 
 		if (responseData.empty()) {
@@ -256,7 +255,7 @@ void ConnectionInfo::_clientSocketLoop(int wakeFD)
 
 		ssize_t writtenData = write(_socketFD, &responseData.front(), responseData.length());
 #ifdef HAP_DEBUG
-		printf("ConnectionInfo::_clientSocketLoop : %d bytes sent "
+		printf("ConnectionInfo::_clientSocketLoop : sent %d bytes "
 			"to client %s\n", writtenData, _socketName.c_str());
 #ifdef HAP_NET_DEBUG
 		fwrite(&responseData.front(), 1, responseData.length(), stdout);
@@ -309,13 +308,13 @@ Response_ptr ConnectionInfo::_handlePairSetup(Message& request)
 			salt[i] = rand();
 		}
 
-		SRP_RESULT result = SRP_set_username(srp, "Pair-Setup");
+		SRP_set_username(srp, "Pair-Setup");
 		int modulusSize = sizeof(modulusStr) / sizeof(modulusStr[0]);
-		result = SRP_set_params(srp, modulusStr, modulusSize,
+		SRP_set_params(srp, modulusStr, modulusSize,
 			generator, sizeof(generator), (uint8_t*)&salt.front(), salt.length());
-		result = SRP_set_auth_password(srp, HAP_DEVICE_PASSWORD);
+		SRP_set_auth_password(srp, HAP_DEVICE_PASSWORD);
 		cstr* publicKey = NULL;
-		result = SRP_gen_pub(srp, &publicKey);
+		SRP_gen_pub(srp, &publicKey);
 
 		MessageDataRecord_ptr saltRec = std::make_shared<MessageDataRecord>(2, salt, true);
 		MessageDataRecord_ptr publicKeyRec = std::make_shared<MessageDataRecord>(3,
@@ -391,28 +390,10 @@ Response_ptr ConnectionInfo::_handlePairSetup(Message& request)
 		std::string encryptedRequest =
 			request.getContent()->getRecordForIndex(5)->getData();
 
-		size_t dataLength = encryptedRequest.length() - 16;
-		char *mac = &encryptedRequest[dataLength];
+		std::string decryptedData = decrypt(&encryptedRequest.front(), 
+			encryptedRequest.length(), (uint8_t*)"PS-Msg05", sessionKey, 32, true);
 
-		chacha20_ctx chacha20;
-		bzero(&chacha20, sizeof(chacha20));
-		chacha20_setup(&chacha20, (const uint8_t *)sessionKey, 32, (uint8_t *)"PS-Msg05");
-
-		//Ploy1305 key
-		uint8_t temp[64];
-		bzero(temp, 64);
-		uint8_t temp2[64];
-		bzero(temp2, 64);
-		chacha20_encrypt(&chacha20, temp, temp2, 64);
-
-		char verify[16];
-		bzero(verify, 16);
-		Poly1305_GenKey(temp2, (uint8_t*)&encryptedRequest.front(), dataLength, false, verify);
-
-		std::string decryptedData(dataLength, 0);
-		chacha20_decrypt(&chacha20, (uint8_t *)&encryptedRequest.front(), (uint8_t *)&decryptedData.front(), dataLength);
-
-		if (bcmp(verify, mac, 16)) {
+		if (decryptedData.empty()) {
 			MessageDataRecord_ptr responseRecord =
 				std::make_shared<MessageDataRecord>(7, std::string(1, (char)1), true);
 
@@ -420,22 +401,6 @@ Response_ptr ConnectionInfo::_handlePairSetup(Message& request)
 
 #ifdef HAP_DEBUG
 			printf("ConnectionInfo::handlePairSetup : corrupt TLv8 at M5\n");
-
-#ifdef HAP_NET_DEBUG
-			for (int j = 0; j < dataLength; j++)
-				printf("%X ", decryptedData[j]);
-			printf("\n");
-
-			printf("\tverify: ");
-			for (int j = 0; j < 16; j++)
-				printf("%X ", verify[j]);
-			printf("\n");
-
-			printf("\tmac: ");
-			for (int j = 0; j < 16; j++)
-				printf("%X ", mac[j]);
-			printf("\n");
-#endif
 #endif
 		}
 		else {
@@ -517,21 +482,7 @@ Response_ptr ConnectionInfo::_handlePairSetup(Message& request)
 				returnTLV8.addRecord(usernameRecord);
 
 				std::string tlv8Data = returnTLV8.rawData();
-				std::string tlv8RecordData(tlv8Data.length() + 16, 0);
-
-				chacha20_ctx ctx;
-				bzero(&ctx, sizeof(ctx));
-
-				chacha20_setup(&ctx, (uint8_t *)sessionKey, 32, (uint8_t *)"PS-Msg06");
-				uint8_t buffer[64], key[64];
-				bzero(buffer, 64);
-				chacha20_encrypt(&ctx, buffer, key, 64);
-				chacha20_encrypt(&ctx, (uint8_t *)&tlv8Data.front(), (uint8_t *)&tlv8RecordData.front(), tlv8Data.length());
-
-				char verify[16];
-				memset(verify, 0, 16);
-				Poly1305_GenKey(key, (uint8_t*)&tlv8RecordData.front(), tlv8Data.length(), false, verify);
-				memcpy((uint8_t*)&tlv8RecordData[tlv8Data.length()], verify, 16);
+				std::string tlv8RecordData = encrypt(tlv8Data, (uint8_t *)"PS-Msg06", sessionKey, 32, true);
 
 				MessageDataRecord_ptr tlv8Record =
 					std::make_shared<MessageDataRecord>(5, tlv8RecordData, true);
@@ -561,8 +512,6 @@ Response_ptr ConnectionInfo::_handlePairVerify(Message& request)
 #ifdef HAP_DEBUG
 	printf("ConnectionInfo::handlePairVerify : start pair verify.\n");
 #endif
-
-	bool retval = true;
 
 	static curved25519_key publicKey;
 	static curved25519_key controllerPublicKey;
@@ -638,23 +587,7 @@ Response_ptr ConnectionInfo::_handlePairVerify(Message& request)
 		hkdf(salt, 24, sharedKey, 32, info, 24, enKey, 32);
 
 		std::string plainMsg = data.rawData();
-		std::string encryptMsg(plainMsg.length() + 16, 0);
-
-		uint8_t polyKey[64];
-		bzero(polyKey, 64);
-
-		uint8_t zero[64];
-		bzero(zero, 64);
-
-		chacha20_ctx chacha;
-		chacha20_setup(&chacha, enKey, 32, (uint8_t *)"PV-Msg02");
-		chacha20_encrypt(&chacha, (uint8_t *)zero, (uint8_t *)polyKey, 64);
-		chacha20_encrypt(&chacha, (uint8_t *)&plainMsg.front(), (uint8_t *)&encryptMsg.front(), plainMsg.length());
-
-		char verify[16];
-		memset(verify, 0, 16);
-		Poly1305_GenKey((const unsigned char *)polyKey, (uint8_t *)&encryptMsg.front(), plainMsg.length(), false, verify);
-		memcpy(&encryptMsg[plainMsg.length()], verify, 16);
+		std::string encryptMsg = encrypt(plainMsg, (uint8_t*)"PV-Msg02", enKey, 32, true);
 
 		MessageDataRecord_ptr encryptRecord =
 			std::make_shared<MessageDataRecord>(5, encryptMsg, true);
@@ -671,25 +604,10 @@ Response_ptr ConnectionInfo::_handlePairVerify(Message& request)
 #endif
 		std::string encryptedData = request.getContent()->getRecordForIndex(5)->getData();
 
-		chacha20_ctx chacha20;
-		bzero(&chacha20, sizeof(chacha20));
-		chacha20_setup(&chacha20, (uint8_t*)enKey, 32, (uint8_t*)"PV-Msg03");
+		std::string decryptData = decrypt(&encryptedData.front(), 
+			encryptedData.length(), (uint8_t*)"PV-Msg03", enKey, 32, true);
 
-		//Ploy1305 key
-		uint8_t temp[64];
-		bzero(temp, 64);
-		uint8_t temp2[64];
-		bzero(temp2, 64);
-		chacha20_encrypt(&chacha20, temp, temp2, 64);
-
-		char verify[16];
-		bzero(verify, 16);
-		Poly1305_GenKey(temp2, (uint8_t *)&encryptedData.front(), encryptedData.length() - 16, false, verify);
-
-		if (!bcmp(verify, &encryptedData[encryptedData.length() - 16], 16)) {
-			std::string decryptData(encryptedData.length() - 16, 0);
-
-			chacha20_decrypt(&chacha20, (uint8_t *)&encryptedData.front(), (uint8_t *)&decryptData.front(), decryptData.length());
+		if (!encryptedData.empty()) {
 			MessageData data(decryptData);
 
 			KeyRecord rec = KeyController::getInstance().getControllerKey(data.getRecordForIndex(1)->getData().c_str());
@@ -704,13 +622,11 @@ Response_ptr ConnectionInfo::_handlePairVerify(Message& request)
 
 			if (err == 0) {
 
-				retval = false;
-
 				hkdf((uint8_t *)"Control-Salt", 12, sharedKey, 32, (uint8_t *)"Control-Read-Encryption-Key", 27, accessoryToControllerKey, 32);
 				hkdf((uint8_t *)"Control-Salt", 12, sharedKey, 32, (uint8_t *)"Control-Write-Encryption-Key", 28, controllerToAccessoryKey, 32);
 
 #ifdef HAP_DEBUG
-				printf("ConnectionInfo::handlePairVerify : pair verified succesfully.\n");
+				printf("ConnectionInfo::_handlePairVerify : pair verified succesfully.\n");
 #endif
 				response = std::make_shared<Response>(200, content);
 
@@ -725,7 +641,7 @@ Response_ptr ConnectionInfo::_handlePairVerify(Message& request)
 				response = std::make_shared<Response>(200, content);
 
 #ifdef HAP_DEBUG
-				printf("ConnectionInfo::handlePairVerify : pair verification failed.\n");
+				printf("ConnectionInfo::_handlePairVerify : pair verification failed.\n");
 #endif
 			}
 		}
@@ -884,7 +800,7 @@ std::string ConnectionInfo::_handleAccessory(const std::string& request)
 
 			char *buffer2 = characteristicsBuffer;
 			while (strlen(buffer2) && statusCode != 400) {
-				bool reachLast = false; bool updateNotify = false;
+				bool updateNotify = false;
 				char *buffer1;
 				buffer1 = strtok_r(buffer2, "}", &buffer2);
 				if (*buffer2 != 0) buffer2 += 2;
@@ -903,7 +819,6 @@ std::string ConnectionInfo::_handleAccessory(const std::string& request)
 						sscanf(buffer1, "\"remote\":true,\"aid\":%d,\"iid\":%d,\"ev\":%s", &aid, &iid, value);
 						updateNotify = true;
 					}
-					this->relay = true;
 				}
 
 #ifdef HAP_DEBUG
@@ -950,14 +865,13 @@ std::string ConnectionInfo::_handleAccessory(const std::string& request)
 							if (c->writable()) {
 								c->setValue(value, this);
 
-								char *broadcastTemp = new char[1024];
-								snprintf(broadcastTemp, 1024, "{\"characteristics\":[{%s}]}", buffer1);
-								BroadcastInfo * info = new BroadcastInfo;
+								BroadcastInfo_ptr info = std::make_shared<BroadcastInfo>();
 								info->sender = c;
-								info->desc = broadcastTemp;
+								info->desc = "{\"characteristics\":[{";
+								info->desc += buffer1;
+								info->desc += "}]}";
 
-								std::thread t = std::thread(&HAPService::announce, &HAPService::getInstance(), info);
-								t.detach();
+								HAPService::getInstance().announce(info);
 
 								statusCode = 204;
 							}
@@ -1008,12 +922,85 @@ std::string ConnectionInfo::_handleAccessory(const std::string& request)
 	return response;
 }
 
+std::string ConnectionInfo::encrypt(
+	const std::string& data,
+	uint8_t nonce[8],
+	const uint8_t* key,
+	uint8_t keyLength,
+	bool dataOnly) const
+{
+	size_t encryptedDataLength = data.length() + 16;
+	if (!dataOnly)
+		encryptedDataLength += 2;
+	std::string encryptedData(encryptedDataLength, 0);
+
+	chacha20_ctx ctx;
+	chacha20_setup(&ctx, key, keyLength, nonce);
+
+	uint8_t buffer[64] = { 0 }, polyKey[64];
+	chacha20_encrypt(&ctx, buffer, polyKey, 64);
+
+	if (dataOnly) {
+		chacha20_encrypt(&ctx, (uint8_t *)&data.front(), (uint8_t *)&encryptedData.front(), data.length());
+
+		Poly1305_GenKey(polyKey, (uint8_t*)&encryptedData.front(), data.length(),
+			false, (uint8_t*)&encryptedData[data.length()]);
+	}
+	else {
+		*((uint16_t*)&encryptedData.front()) = data.length();
+
+		chacha20_encrypt(&ctx, (uint8_t *)&data.front(), (uint8_t *)&encryptedData[2], data.length());
+
+		Poly1305_GenKey(polyKey, (uint8_t*)&encryptedData.front(), data.length(),
+			true, (uint8_t*)&encryptedData[2 + data.length()]);
+	}
+
+	return encryptedData;
+}
+
+std::string ConnectionInfo::decrypt(
+	const char* encryptedData,
+	uint16_t encryptedDataLength,
+	uint8_t nonce[8],
+	const uint8_t* key,
+	uint8_t keyLength,
+	bool dataOnly) const
+{
+	// Decrypt request
+	uint16_t dataLength = (dataOnly ? (encryptedDataLength - 16) : *((uint16_t*)encryptedData));
+	if (dataLength < (dataOnly ? 17 : 19))
+		return "";
+
+	std::string data(dataLength, 0);
+
+	chacha20_ctx chacha20;
+	memset(&chacha20, 0, sizeof(chacha20));
+
+	chacha20_setup(&chacha20, key, keyLength, nonce);
+
+	uint8_t zero[64] = { 0 };
+	uint8_t polyKey[sizeof(zero)] = { 0 };
+	chacha20_encrypt(&chacha20, zero, polyKey, sizeof(zero));
+
+	//Ploy1305 key
+	uint8_t verify[16] = { 0 };
+	Poly1305_GenKey(polyKey, (uint8_t*)encryptedData, dataLength, !dataOnly, verify);
+
+	if (memcmp((void *)verify, (void *)&encryptedData[dataOnly ? dataLength : 2 + dataLength], 16) == 0) {
+		chacha20_encrypt(&chacha20, (uint8_t*)&encryptedData[dataOnly ? 0 : 2], (uint8_t *)&data.front(), dataLength);
+
+		return data;
+	}
+
+	return "";
+}
+
 // 2ByteS(datalen) + data_buf + 16Bytes(Verfied Key)
 // Type_Data_Without_Length
 //Passed-in buf is OMIT len and 16Bytes verfied key
 // Type_Data_With_Length
 //Passed-in buf is len and data_buf
-void ConnectionInfo::Poly1305_GenKey(const unsigned char * key, uint8_t * buf, uint16_t len, bool dataWithLength, char* verify)
+void ConnectionInfo::Poly1305_GenKey(const uint8_t * key, uint8_t * buf, uint16_t len, bool dataWithLength, uint8_t* verify) const
 {
     if (key == NULL || buf == NULL || len < 2 || verify == NULL)
         return;
@@ -1021,23 +1008,23 @@ void ConnectionInfo::Poly1305_GenKey(const unsigned char * key, uint8_t * buf, u
     poly1305_context verifyContext; bzero(&verifyContext, sizeof(verifyContext));
     poly1305_init(&verifyContext, key);
     
-    char waste[16];
-    bzero(waste, 16);
+	uint8_t waste[16] = { 0 };
     
     if (dataWithLength) {
-        poly1305_update(&verifyContext, (const unsigned char *)&buf[0], 1);
-        poly1305_update(&verifyContext, (const unsigned char *)&buf[1], 1);
-        poly1305_update(&verifyContext, (const unsigned char *)waste, 14);
+        poly1305_update(&verifyContext, &buf[0], 1);
+        poly1305_update(&verifyContext, &buf[1], 1);
+        poly1305_update(&verifyContext, waste, 14);
         
-        poly1305_update(&verifyContext, (const unsigned char *)&buf[2], len);
+        poly1305_update(&verifyContext, &buf[2], len);
     }
     else {
-        poly1305_update(&verifyContext, (const unsigned char *)buf, len);
+        poly1305_update(&verifyContext, buf, len);
     }
     
     if (len%16 > 0)
-        poly1305_update(&verifyContext, (const unsigned char *)waste, 16-(len%16));
-    unsigned char _len;
+        poly1305_update(&verifyContext, waste, 16-(len%16));
+
+   uint8_t _len;
     if (dataWithLength) {
         _len = 2;
     }
@@ -1045,44 +1032,15 @@ void ConnectionInfo::Poly1305_GenKey(const unsigned char * key, uint8_t * buf, u
         _len = 0;
     }
     
-    poly1305_update(&verifyContext, (const unsigned char *)&_len, 1);
+    poly1305_update(&verifyContext, &_len, 1);
     poly1305_update(&verifyContext, (const unsigned char *)&waste, 7);
     _len = len;
     
-    poly1305_update(&verifyContext, (const unsigned char *)&_len, 1);
+    poly1305_update(&verifyContext, &_len, 1);
     _len = len/256;
-    poly1305_update(&verifyContext, (const unsigned char *)&_len, 1);
+    poly1305_update(&verifyContext, &_len, 1);
     
     poly1305_update(&verifyContext, (const unsigned char *)&waste, 6);
     
-    poly1305_finish(&verifyContext, (unsigned char*)verify);
-}
-
-void ConnectionInfo::addNotify(void *target, int aid, int iid) 
-{
-	_notificationList.push_back(target);
-
-#ifdef HAP_DEBUG
-	printf("ConnectionInfo::addNotify : add notify %s to %d.%d.\n", identity, aid, iid);
-#endif
-}
-
-bool ConnectionInfo::notify(void *target) 
-{
-	for (auto& it : _notificationList)
-		if (it == target)
-			return true;
-    
-	return false;
-}
-
-void ConnectionInfo::removeNotify(void *target) 
-{
-	std::remove_if(_notificationList.begin(), _notificationList.end(),
-		[target](const void * v) { return v == target; });
-}
-
-void ConnectionInfo::clearNotify() 
-{
-	_notificationList.clear();
+    poly1305_finish(&verifyContext, verify);
 }

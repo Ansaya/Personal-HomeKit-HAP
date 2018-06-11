@@ -21,7 +21,6 @@ using namespace hap;
 using namespace hap::net;
 
 static const char hapJsonType[] = "application/hap+json";
-static const char pairingTlv8Type[] = "application/pairing+tlv8";
 
 HAPService& HAPService::getInstance()
 {
@@ -30,174 +29,333 @@ HAPService& HAPService::getInstance()
 	return instance;
 }
 
-HAPService::HAPService() : _setup(false), _currentConfiguration(1) {
-}
-
-HAPService::~HAPService() {
-	if (_setup.load()) {
-		DNSServiceRefDeallocate(_netService);
-		SRP_finalize_library();
-	}
-}
-
-void HAPService::setup(deviceType type)
+HAPService::HAPService() : _running(false), _currentConfiguration(1)
 {
+}
+
+HAPService::~HAPService()
+{
+	stop();
+}
+
+bool HAPService::setupAndListen(deviceType type)
+{
+	if (_running.load()) {
+#ifdef HAP_DEBUG
+		printf("HAPService::setupAndListen : hap service already running.\n");
+#endif
+		return true;
+	}
+
 	_type = type;
 
-	SRP_initialize_library();
+	int retval = SRP_initialize_library();
+	if (!SRP_OK(retval)) {
+#ifdef HAP_DEBUG
+		printf("HAPService::setupAndListen : error during SRP initalization.\n");
+#endif
+		return false;
+	}
+
 	srand((unsigned int)time(NULL));
-
-	//_keepAlive = new std::thread(&HAPService::keepAliveLoop, this);
-
-	TXTRecordRef txtRecord = buildTXTRecord();
 
 	// Socket setup
 	_socket = socket(PF_INET, SOCK_STREAM, 0);
+	if (_socket < 0) {
+#ifdef HAP_DEBUG
+		printf("HAPService::setupAndListen : error during socket initialization : %s\n",
+			strerror(errno));
+#endif
+		return false;
+	}
+
 	sockaddr_in addr;
-	bzero(&addr, sizeof(addr));
+	memset(&addr, 0, sizeof(addr));
 	addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	addr.sin_family = PF_INET;
 	addr.sin_port = htons(0);
 
-	int optval = 1;	
+	int optval = 1;
 	socklen_t optlen = sizeof(optval);
-	setsockopt(_socket, SOL_SOCKET, SO_KEEPALIVE, &optval, optlen);
+	retval = setsockopt(_socket, SOL_SOCKET, SO_KEEPALIVE, &optval, optlen);
+	if (retval < 0) {
+#ifdef HAP_DEBUG
+		printf("HAPService::setupAndListen : error during socket initialization : %s\n",
+			strerror(errno));
+#endif
+		return false;
+	}
 
-	bind(_socket, (const struct sockaddr *)&addr, sizeof(addr));
-	listen(_socket, (unsigned int)HAPServiceMaximumConnections);
+	retval = bind(_socket, (const struct sockaddr *)&addr, sizeof(addr));
+	if (retval < 0) {
+#ifdef HAP_DEBUG
+		printf("HAPService::setupAndListen : error during socket initialization : %s\n",
+			strerror(errno));
+#endif
+		return false;
+	}
+
+	retval = listen(_socket, (unsigned int)HAPServiceMaximumConnections);
+	if (retval < 0) {
+#ifdef HAP_DEBUG
+		printf("HAPService::setupAndListen : error during socket initialization : %s\n",
+			strerror(errno));
+#endif
+		return false;
+	}
 
 	// Get listening port
 	sockaddr_in address;
 	socklen_t len = sizeof(address);
 	getsockname(_socket, (struct sockaddr *)&address, &len);
 
-	DNSServiceRegister(&_netService, 0, 0, HAP_DEVICE_NAME, HAPServiceType, "", NULL,
-		htons(ntohs(address.sin_port)), TXTRecordGetLength(&txtRecord), 
+	uint16_t servicePort = htons(ntohs(address.sin_port));
+
+	// Initialize DNS SD service
+	TXTRecordRef txtRecord = buildTXTRecord();
+
+	retval = DNSServiceRegister(&_netService, 0, 0, HAP_DEVICE_NAME, HAPServiceType, "", NULL,
+		servicePort, TXTRecordGetLength(&txtRecord),
 		TXTRecordGetBytesPtr(&txtRecord), NULL, NULL);
 
 	TXTRecordDeallocate(&txtRecord);
 
-	_setup.store(true);
-
+	if (retval != kDNSServiceErr_NoError) {
 #ifdef HAP_DEBUG
-	printf("HAPService::setup : hap service setup completed.\n");
-#endif // HAP_DEBUG
-}
-
-void HAPService::handleConnection() {
-	if (!_setup.load()) {
-		printf("HAPService::handleConnection : please call HAPService::setup before!\n");
-		return;
+		printf("HAPService::setupAndListen : error during DNS SD initialization.\n");
+#endif
+		return false;
 	}
 
-	struct sockaddr_in client_addr; 
-	socklen_t clen;
-
-	int subSocket = accept(_socket, (struct sockaddr *)&client_addr, &clen);
-
-	//Before anything start, get sniff the host name of the client
-	std::string socketName = "";
-	if (clen == sizeof(struct sockaddr_in)) {
-		char buffer[128];
-		int res = getnameinfo((struct sockaddr *)&client_addr, clen, buffer, sizeof(buffer), NULL, 0, NI_NOFQDN);
-		if(res == 0)
-			socketName = std::string(buffer);
+	int wakeFD[2];
+	retval = pipe(wakeFD);
+	if (retval < 0) {
+#ifdef HAP_DEBUG
+		printf("HAPService::setupAndListen : error during wake pipe allocation.\n");
+#endif
+		return false;
 	}
 
-	ConnectionInfo* newConn = new ConnectionInfo(subSocket, socketName);
+	_running.store(true);
 
-	_connections.push_back(newConn);
+	_listenerWakeFD = wakeFD[1];
+	_listener = new std::thread(&HAPService::listenerLoop, this, wakeFD[0]);
+
+	_keepAlive = new std::thread(&HAPService::keepAliveLoop, this);
+
+	_broadcast = new std::thread(&HAPService::broadcastLoop, this);
 
 #ifdef HAP_DEBUG
-	printf("HAPService::handleConnection : New client connected: \"%d\"  %s\n", subSocket, socketName.c_str());
-#endif // HAP_DEBUG
-}
-
-void HAPService::announce(BroadcastInfo *info) {
-
-	void *sender = info->sender;
-	char *desc = info->desc;
-
-	char reply[1024];
-	int len = snprintf(reply, 1024, 
-		"EVENT/1.0 200 OK\r\n"
-		"Content-Type: %s\r\n"
-		"Content-Length: %lu\r\n"
-		"\r\n"
-		"%s",
-		hapJsonType,
-		strlen(desc), 
-		desc);
-
-#ifdef HAP_NET_DEBUG
-	printf("Announce message:\n%s\n", reply);
+	printf("HAPService::setupAndListen : hap service listening on port %u.\n", servicePort);
 #endif
 
-	broadcastMessage(sender, reply, len);
+	return true;
+}
 
-	delete[] desc;
-	delete info;
+void HAPService::stop()
+{
+	if (!_running.load()) return;
+
+	_running.store(false);
+
+	// Dispose all clients connections
+	for (auto it : _connections) {
+		delete it;
+	}
+
+	// Dispose connection listener thread
+	char c = 1;
+	write(_listenerWakeFD, &c, 1);
+	_listener->join();
+	close(_listenerWakeFD);
+	_listenerWakeFD = -1;
+
+	// Dispose keep alive thread
+	_keepAliveStop.notify_all();
+	_keepAlive->join();
+
+	// Dispose broadcast thread
+	BroadcastInfo_ptr fake = nullptr;
+	_broadcastInfo.push_back(fake);
+	_broadcastCV.notify_all();
+	_broadcast->join();
+
+	// Dispose dns and srp stuff
+	DNSServiceRefDeallocate(_netService);
+	SRP_finalize_library();
+
+#ifdef HAP_DEBUG
+	printf("HAPService::stop : hap service stopped.\n");
+#endif
+}
+
+void HAPService::announce(BroadcastInfo_ptr info)
+{
+	if (!_running.load()) return;
+
+	std::unique_lock<std::mutex> lock(_broadcastInfoMutex);
+
+	_broadcastInfo.push_back(info);
+	_broadcastCV.notify_all();
+}
+
+void HAPService::listenerLoop(int wakeFD)
+{
+	struct pollfd fds[2];
+	fds[0].fd = _socket;
+	fds[0].events = POLLIN | POLLHUP | POLLERR;
+	fds[1].fd = wakeFD;
+	fds[1].events = POLLIN;
+
+#ifdef HAP_DEBUG
+	printf("HAPService::listenerLoop : listener ready for incoming connections...\n");
+#endif
+
+	do {
+		// Poll for ten seconds to avoid deadlock in case of some error
+		poll(fds, 2, 10000);
+
+		if (fds[0].revents & (POLLHUP | POLLERR)) {
+#ifdef HAP_DEBUG
+			printf("HAPService::listenerLoop : error on listener socket.\n");
+#endif
+			break;
+		}
+
+		if (fds[0].revents & POLLIN) {
+
+			struct sockaddr_in client_addr;
+			socklen_t clen;
+
+			int subSocket = accept(_socket, (struct sockaddr *)&client_addr, &clen);
+
+			//Before anything start, get sniff the host name of the client
+			std::string socketName = "";
+			if (clen == sizeof(struct sockaddr_in)) {
+				char buffer[128];
+				int retval = getnameinfo((struct sockaddr *)&client_addr, clen, buffer,
+					sizeof(buffer), NULL, 0, NI_NOFQDN);
+				if (retval) {
+#ifdef HAP_DEBUG
+					printf("HAPService::listenerLoop : error : could not read socket "
+						"name : %s\n", gai_strerror(retval));
+#endif
+				}
+				else
+					socketName = std::string(buffer);
+			}
+
+			ConnectionInfo* newConn = new ConnectionInfo(subSocket, socketName);
+
+			_connections.push_back(newConn);
+
+#ifdef HAP_DEBUG
+			printf("HAPService::listenerLoop : new client connection: \"%d\" %s\n",
+				subSocket, socketName.c_str());
+#endif
+		}
+	} while (_running.load());
+
+	if (shutdown(_socket, SHUT_RDWR) != 0) {
+#ifdef HAP_DEBUG
+		printf("HAPService::stop : error on socket shutdown : %s\n", strerror(errno));
+#endif
+	}
+
+	// Dispose wake pipe
+	close(wakeFD);
+
+#ifdef HAP_DEBUG
+	printf("HAPService::listenerLoop : listener shutdown.\n");
+#endif
+}
+
+void HAPService::keepAliveLoop()
+{
+#ifdef HAP_DEBUG
+	printf("HAPService::keepAliveLoop : keep alive running.\n");
+#endif
+	std::mutex m;
+	BroadcastInfo_ptr alivePackage = std::make_shared<BroadcastInfo>();
+	alivePackage->sender = nullptr;
+	alivePackage->desc = "{\"characteristics\": []}";
+
+	do {
+		// Wait for given keep alive timeout or for shutdown notification
+		std::unique_lock<std::mutex> lock(m);
+		std::cv_status state = _keepAliveStop
+			.wait_for(lock, std::chrono::seconds(HAP_NET_HAP_SERVICE_KEEP_ALIVE_PERIOD));
+
+		// If notified before timeout it's time to quit
+		if (state == std::cv_status::no_timeout) break;
+
+#ifdef HAP_DEBUG
+		printf("HAPService::keepAliveLoop : keep alive message sent.\n");
+#endif
+		broadcastMessage(alivePackage);
+
+	} while (_running.load());
+
+#ifdef HAP_DEBUG
+	printf("HAPService::keepAliveLoop : keep alive shutdown.\n");
+#endif
+}
+
+void HAPService::broadcastLoop()
+{
+#ifdef HAP_DEBUG
+	printf("HAPService::broadcastLoop : broadcast loop running.\n");
+#endif
+	BroadcastInfo_ptr bi;
+
+	do {
+		{
+			// Wait for something to send
+			std::unique_lock<std::mutex> lock(_broadcastInfoMutex);
+			_broadcastCV.wait(lock, [&]() { return !_broadcastInfo.empty(); });
+
+#ifdef HAP_DEBUG
+			printf("HAPService::broadcastLoop : wake up from wait.\n");
+#endif
+
+			// Close if not running any more
+			if (!_running.load()) break;
+
+			// Get first element, broadcast it and pop it from the list
+			bi = _broadcastInfo.front();
+			_broadcastInfo.pop_front();
+		}
+
+		if (bi != nullptr)
+			broadcastMessage(bi);
+
+	} while (_running.load());
+
+#ifdef HAP_DEBUG
+	printf("HAPService::broadcastLoop : broadcast loop shutdown.\n");
+#endif
 }
 
 //Broadcast a event message, use for notifcation or keep alive
-void HAPService::broadcastMessage(void *sender, char *resultData, size_t resultLen) {
+void HAPService::broadcastMessage(BroadcastInfo_ptr& info)
+{
+	std::string data;
+	data += "EVENT/1.0 200 OK\r\n";
+	data += "Content-Type: ";
+	data += hapJsonType;
+	data += "\r\n";
+	data += "Content-Length: ";
+	data += std::to_string(info->desc.size());
+	data += "\r\n\r\n";
+	data += info->desc;
+
+#ifdef HAP_NET_DEBUG
+	printf("Broadcasting message:\n%s\n\n", data.c_str());
+#endif
 
 	for (auto& conn : _connections) {
-
-		int socketNumber = conn->_socketFD;
-
-		if (socketNumber >= 0 && conn->numberOfMsgSend >= 0 && (conn->notify(sender) || sender == nullptr)) {
-
-#ifdef HAP_DEBUG
-			printf("HAPService::broadcastMessage : sending %d byte message to client %d\n", resultLen, socketNumber);
-#endif
-			std::unique_lock<std::mutex> lock(conn->_socketWrite);
-
-			chacha20_ctx chacha20;
-			bzero(&chacha20, sizeof(chacha20));
-
-			char temp[64];
-			bzero(temp, 64);
-			char temp2[64];
-			bzero(temp2, 64);
-
-			unsigned char *reply = new unsigned char[resultLen + 18];
-			reply[0] = resultLen % 256;
-			reply[1] = (resultLen - (uint8_t)reply[0]) / 256;
-
-			unsigned long long numberOfMsgSend = conn->numberOfMsgSend;
-
-			chacha20_setup(&chacha20, (const uint8_t *)conn->accessoryToControllerKey, 32, (uint8_t *)&numberOfMsgSend);
-			conn->numberOfMsgSend++;
-
-			chacha20_encrypt(&chacha20, (const uint8_t*)temp, (uint8_t *)temp2, 64);
-			chacha20_encrypt(&chacha20, (const uint8_t*)resultData, (uint8_t*)&reply[2], resultLen);
-
-			char verify[16];
-			memset(verify, 0, 16);
-			conn->Poly1305_GenKey((const unsigned char *)temp2, (uint8_t *)reply, resultLen, true, verify);
-			memcpy((unsigned char*)&reply[resultLen + 2], verify, 16);
-
-			write(socketNumber, reply, resultLen + 18);
-			delete[] reply;
-		}
-	}
-}
-
-void HAPService::keepAliveLoop() 
-{
-	while (true) {
-#ifdef HAP_DEBUG
-		printf("HAPService::keepAliveLoop : keep alive.\n");
-#endif // HAP_DEBUG
-
-		BroadcastInfo *alivePackage = new BroadcastInfo;
-		alivePackage->sender = nullptr;
-		char *aliveMsg = new char[32];
-		strncpy(aliveMsg, "{\"characteristics\": []}", 32);
-		alivePackage->desc = aliveMsg;
-		announce(alivePackage);
-		std::this_thread::sleep_for(std::chrono::seconds(HAP_NET_HAP_SERVICE_KEEP_ALIVE_PERIOD));
+		if (info->sender == nullptr || conn->isNotified(info->sender))
+			conn->send(data);
 	}
 }
 

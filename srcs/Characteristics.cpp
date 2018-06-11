@@ -7,18 +7,33 @@
 
 using namespace hap;
 
+Characteristics::Characteristics(char_type _type, permission _premission)
+	: type(_type), premission(_premission)
+{
+
+}
+
+void Characteristics::setValue(std::string str)
+{
+	setValue(str, nullptr);
+	notify();
+}
+
 void Characteristics::notify()
 {
-	if (!notifiable())
-		return;
+	// If char isn't notifiable skip all
+	if (!notifiable()) return;
 
-	char *broadcastTemp = new char[1024];
-	snprintf(broadcastTemp, 1024, "{\"characteristics\":[{\"aid\": %d, \"iid\": %d, \"value\": %s}]}", accessory->aid, iid, value(NULL).c_str());
-
-	struct net::BroadcastInfo * info = new net::BroadcastInfo;
+	// Build notification broadcast message
+	net::BroadcastInfo_ptr info = std::make_shared<net::BroadcastInfo>();
 	info->sender = this;
-	info->desc = broadcastTemp;
+	info->desc += "{\"characteristics\":[{\"aid\": ";
+	info->desc += std::to_string(accessory->aid);
+	info->desc += ", \"iid\": ";
+	info->desc += std::to_string(iid);
+	info->desc += ", \"value\": ";
+	info->desc += value(nullptr);
+	info->desc += "}]}";
 
-	std::thread t(&net::HAPService::announce, &net::HAPService::getInstance(), info);
-	t.detach();
+	net::HAPService::getInstance().announce(info);
 }

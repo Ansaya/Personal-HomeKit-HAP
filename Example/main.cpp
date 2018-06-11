@@ -15,9 +15,7 @@ void fanIdentify(bool oldValue, bool newValue, net::ConnectionInfo* info) {
 }
 
 void initAccessorySet() {
-	net::HAPService::getInstance().setup(deviceType_bridge);
-
-	printf("Initial Accessory\n");
+	printf("Accessories initialization\n");
 
 	Accessory_ptr lightAcc = std::make_shared<Accessory>();
 
@@ -48,8 +46,7 @@ void initAccessorySet() {
 
 	/*std::thread t([brightnessState]() { 
 		std::this_thread::sleep_for(std::chrono::seconds(20)); 
-		brightnessState->Characteristics::setValue("0"); 
-		brightnessState->notify();
+		brightnessState->Characteristics::setValue("0");
 		printf("\n\nLight Off\n\n");
 	});
 	t.detach();*/
@@ -81,9 +78,12 @@ int main(int argc, const char * argv[]) {
 
 	initAccessorySet();
 
-	do {
-		net::HAPService::getInstance().handleConnection();
-	} while (true);
+	net::HAPService::getInstance().setupAndListen(deviceType_bridge);
+
+	printf("Press a ket to exit...\n");
+	getchar();
+
+	net::HAPService::getInstance().stop();
 
 	return 0;
 }

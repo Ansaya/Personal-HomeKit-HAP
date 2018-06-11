@@ -8,8 +8,11 @@
 #include "ConnectionInfo.h"
 
 #include <atomic>
+#include <condition_variable>
 #include <dns_sd.h>
 #include <list>
+#include <memory>
+#include <mutex>
 #include <thread>
 
 namespace hap {
@@ -18,9 +21,10 @@ namespace net {
 
 	struct BroadcastInfo {
 		void *sender;
-		char *desc;
+		std::string desc;
 	};
 
+	typedef std::shared_ptr<BroadcastInfo> BroadcastInfo_ptr;
 
 	class HAPService {
 
@@ -29,30 +33,44 @@ namespace net {
 
 		~HAPService();
 
-		void setup(hap::deviceType type);
+		bool setupAndListen(hap::deviceType type);
 
-		void handleConnection();
+		void stop();
 
-		void announce(BroadcastInfo* info);
+		void announce(BroadcastInfo_ptr info);
 
 	private:
-		std::atomic_bool _setup;
+		std::atomic_bool _running;
 		hap::deviceType _type;
 		int _socket;
 		DNSServiceRef _netService;
 
 		std::atomic_int _currentConfiguration;
 
+		// Connection handling
+		int _listenerWakeFD;
+		std::thread* _listener;
 		std::list<ConnectionInfo*> _connections;
+
+		void listenerLoop(int wakeFD);
+
+		std::condition_variable _keepAliveStop;
 		std::thread* _keepAlive;
+
+		void keepAliveLoop();
+
+		std::condition_variable _broadcastCV;
+		std::mutex _broadcastInfoMutex;
+		std::list<BroadcastInfo_ptr> _broadcastInfo;
+		std::thread* _broadcast;
+
+		void broadcastLoop();
+
+		void broadcastMessage(BroadcastInfo_ptr& info);
 
 		HAPService();
 		HAPService(const HAPService&) = delete;
 		void operator=(const HAPService&) = delete;
-
-		void broadcastMessage(void *sender, char *resultData, size_t resultLen);
-
-		void keepAliveLoop();
 
 		TXTRecordRef buildTXTRecord();
 
