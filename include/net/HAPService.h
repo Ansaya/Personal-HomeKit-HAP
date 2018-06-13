@@ -20,7 +20,7 @@ namespace hap {
 namespace net {
 
 	struct BroadcastInfo {
-		void *sender;
+		const void *sender;
 		std::string desc;
 	};
 

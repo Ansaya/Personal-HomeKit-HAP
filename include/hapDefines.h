@@ -5,11 +5,16 @@
 
 namespace hap {
 
+	class AccessorySet;
+
 	class Accessory;
 	typedef std::shared_ptr<Accessory> Accessory_ptr;
 
-	class AccessorySet;
-	typedef std::shared_ptr<AccessorySet> AccessorySet_ptr;
+	class Service;
+	typedef std::shared_ptr<Service> Service_ptr;
+
+	class Characteristics;
+	typedef std::shared_ptr<Characteristics> Characteristics_ptr;
 
 }
 

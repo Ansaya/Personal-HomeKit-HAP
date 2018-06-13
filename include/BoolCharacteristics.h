@@ -10,16 +10,19 @@ namespace hap {
 
 class BoolCharacteristics: public Characteristics {
 public:
-    bool _value;
-	std::function<void(bool oldValue, bool newValue, net::ConnectionInfo* sender)> valueChangeFunctionCall;
-
 	BoolCharacteristics(char_type _type, permission _premission);
 
-	virtual std::string value(net::ConnectionInfo *sender);
+	std::string getValue() override;
 
-	virtual void setValue(std::string str, net::ConnectionInfo *sender);
+	void setValue(const std::string& newValue, void* sender) override;
 
-	virtual std::string describe(net::ConnectionInfo *sender);
+	std::string describe() override;
+
+	void setValueChangeCB(std::function<void(bool oldValue, bool newValue, void* sender)> cb = nullptr);
+
+private:
+	bool _value;
+	std::function<void(bool oldValue, bool newValue, void* sender)> _valueChangeCB;
 };
 
 }

@@ -1,6 +1,9 @@
 #include <net/ConnectionInfo.h>
 
 #include <AccessorySet.h>
+#include <Accessory.h>
+#include <Characteristics.h>
+#include <hapDefines.h>
 #include <KeyController.h>
 #include <net/HAPService.h>
 #include <net/Message.h>
@@ -101,6 +104,11 @@ ConnectionInfo::~ConnectionInfo()
 	_clientSocket.join();
 }
 
+const std::string &ConnectionInfo::getSocketName() const
+{
+	return _socketName;
+}
+
 void ConnectionInfo::send(const std::string& data)
 {
 	if (!_connected.load())
@@ -115,33 +123,39 @@ void ConnectionInfo::send(const std::string& data)
 	write(_socketFD, &encryptedData.front(), encryptedData.length());
 }
 
-void ConnectionInfo::addNotify(void *target, int aid, int iid)
+void ConnectionInfo::addNotify(const void *target, int aid, int iid)
 {
-	_notificationList.push_back(target);
+	std::unique_lock<std::mutex> lock(_notificationsList);
+
+	_notifications.push_back(target);
 
 #ifdef HAP_DEBUG
 	printf("ConnectionInfo::addNotify : add notify %s to %d.%d.\n", identity, aid, iid);
 #endif
 }
 
-bool ConnectionInfo::isNotified(void *target)
+bool ConnectionInfo::isNotified(const void *target)
 {
-	for (auto& it : _notificationList)
+	std::unique_lock<std::mutex> lock(_notificationsList);
+
+	for (auto& it : _notifications)
 		if (it == target)
 			return true;
 
 	return false;
 }
 
-void ConnectionInfo::removeNotify(void *target)
+void ConnectionInfo::removeNotify(const void *target)
 {
-	std::remove_if(_notificationList.begin(), _notificationList.end(),
+	std::unique_lock<std::mutex> lock(_notificationsList);
+
+	std::remove_if(_notifications.begin(), _notifications.end(),
 		[target](const void * v) { return v == target; });
 }
 
 void ConnectionInfo::clearNotify()
 {
-	_notificationList.clear();
+	_notifications.clear();
 }
 
 void ConnectionInfo::_clientSocketLoop(int wakeFD)
@@ -281,9 +295,9 @@ void ConnectionInfo::_clientSocketLoop(int wakeFD)
 
 Response_ptr ConnectionInfo::_handlePairSetup(Message& request)
 {
-	static SRP *srp = SRP_new(SRP6a_server_method());
-	static cstr* secretKey = NULL;
-	static uint8_t sessionKey[64];
+	static thread_local SRP *srp = SRP_new(SRP6a_server_method());
+	static thread_local cstr* secretKey = NULL;
+	static thread_local uint8_t sessionKey[64];
 
 	PairSetupState state = (PairSetupState)
 		request.getContent()->getRecordForIndex(6)->getData().front();
@@ -513,11 +527,11 @@ Response_ptr ConnectionInfo::_handlePairVerify(Message& request)
 	printf("ConnectionInfo::handlePairVerify : start pair verify.\n");
 #endif
 
-	static curved25519_key publicKey;
-	static curved25519_key controllerPublicKey;
-	static curved25519_key sharedKey;
+	static thread_local curved25519_key publicKey;
+	static thread_local curved25519_key controllerPublicKey;
+	static thread_local curved25519_key sharedKey;
 
-	static uint8_t enKey[32];
+	static thread_local uint8_t enKey[32];
 
 	PairVerifyState state = (PairVerifyState)
 		request.getContent()->getRecordForIndex(6)->getData().front();
@@ -684,7 +698,7 @@ std::string ConnectionInfo::_handleAccessory(const std::string& request)
 		printf("ConnectionInfo::_handleAccessory : accessories info requested.\n");
 #endif
 		statusCode = 200;
-		responseContent = AccessorySet::getInstance().describe(this);
+		responseContent = AccessorySet::getInstance().describe();
 	}
 	else if (path == "pairings") {
 
@@ -733,8 +747,6 @@ std::string ConnectionInfo::_handleAccessory(const std::string& request)
 		HAPService::getInstance().updatePairable();
 	}
 	else if (strncmp(path.c_str(), "characteristics", 15) == 0) {
-		std::unique_lock<std::mutex> lock(AccessorySet::getInstance().accessoryMutex);
-
 #ifdef HAP_DEBUG
 		printf("ConnectionInfo::_handleAccessory : characteristics action required.\n");
 #endif
@@ -765,15 +777,15 @@ std::string ConnectionInfo::_handleAccessory(const std::string& request)
 					indexBuffer[0] = '0';
 				}
 
-				Accessory_ptr a = AccessorySet::getInstance().accessoryAtIndex(aid);
+				Accessory_ptr a = AccessorySet::getInstance().getAccessory(aid);
 				if (a != nullptr) {
-					Characteristics *c = a->characteristicsAtIndex(iid);
+					Characteristics_ptr c = a->getCharacteristic(iid);
 					if (c != nullptr) {
 #ifdef HAP_DEBUG
 						printf("ConnectionInfo::_handleAccessory : characteristics : get %d.%d\n", aid, iid);
 #endif
 
-						std::string s[3] = { std::to_string(aid), std::to_string(iid), c->value(this) };
+						std::string s[3] = { std::to_string(aid), std::to_string(iid), c->getValue() };
 						std::string k[3] = { "aid", "iid", "value" };
 						if (responseContent.length() != 1) {
 							responseContent += ",";
@@ -825,7 +837,7 @@ std::string ConnectionInfo::_handleAccessory(const std::string& request)
 				printf("ConnectionInfo::_handleAccessory : characteristics : change %d.%d \n", aid, iid);
 #endif
 
-				Accessory_ptr a = AccessorySet::getInstance().accessoryAtIndex(aid);
+				Accessory_ptr a = AccessorySet::getInstance().getAccessory(aid);
 				if (a == nullptr) {
 					statusCode = 400;
 #ifdef HAP_DEBUG
@@ -833,7 +845,7 @@ std::string ConnectionInfo::_handleAccessory(const std::string& request)
 #endif
 				}
 				else {
-					Characteristics *c = a->characteristicsAtIndex(iid);
+					Characteristics_ptr c = a->getCharacteristic(iid);
 
 					if (c == nullptr) {
 						statusCode = 400;
@@ -848,9 +860,9 @@ std::string ConnectionInfo::_handleAccessory(const std::string& request)
 #endif
 							if (c->notifiable()) {
 								if (strncmp(value, "1", 1) == 0 || strncmp(value, "true", 4) == 0)
-									addNotify(c, aid, iid);
+									addNotify(c.get(), aid, iid);
 								else
-									removeNotify(c);
+									removeNotify(c.get());
 
 								statusCode = 204;
 							}
@@ -866,7 +878,7 @@ std::string ConnectionInfo::_handleAccessory(const std::string& request)
 								c->setValue(value, this);
 
 								BroadcastInfo_ptr info = std::make_shared<BroadcastInfo>();
-								info->sender = c;
+								info->sender = c.get();
 								info->desc = "{\"characteristics\":[{";
 								info->desc += buffer1;
 								info->desc += "}]}";

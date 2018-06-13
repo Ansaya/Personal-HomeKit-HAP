@@ -4,33 +4,43 @@
 
 using namespace hap;
 
-FloatCharacteristics::FloatCharacteristics(char_type _type, permission _premission, float minVal, float maxVal, float step, unit charUnit)
-	: Characteristics(_type, _premission), _minVal(minVal), _maxVal(maxVal), _step(step), _unit(charUnit)
+FloatCharacteristics::FloatCharacteristics(char_type type, permission premission, 
+	float minVal, float maxVal, float step, unit charUnit)
+	: Characteristics(type, premission), 
+	_minVal(minVal), _maxVal(maxVal), _step(step), _unit(charUnit)
 {
 }
 
-std::string FloatCharacteristics::value(net::ConnectionInfo *sender)
+std::string FloatCharacteristics::getValue()
 {
-	if (perUserQuery != nullptr && sender != nullptr)
-		return perUserQuery(sender);
+	std::unique_lock<std::mutex> lock(_valueHandle);
 
 	return std::to_string(_value);
 }
 
-void FloatCharacteristics::setValue(std::string str, net::ConnectionInfo *sender)
+void FloatCharacteristics::setValue(const std::string& newValue, void* sender)
 {
-	float temp = atof(str.c_str());
-	if (valueChangeFunctionCall != nullptr && sender != nullptr)
-		valueChangeFunctionCall(_value, temp, sender);
+	float temp = std::stof(newValue);
+	if (temp > _maxVal)
+		temp = _maxVal;
+	if (temp < _minVal)
+		temp = _minVal;
+
+	std::unique_lock<std::mutex> lock(_valueHandle);
+
+	if (_valueChangeCB != nullptr && sender != nullptr)
+		_valueChangeCB(_value, temp, sender);
+
 	_value = temp;
 }
-std::string FloatCharacteristics::describe(net::ConnectionInfo *sender)
+
+std::string FloatCharacteristics::describe()
 {
 	std::string result;
 	char tempStr[16];
 
-	if (premission & permission_read) {
-		result += wrap("value") + ":" + value(sender);
+	if (_permission & permission_read) {
+		result += wrap("value") + ":" + getValue();
 		result += ",";
 	}
 
@@ -48,18 +58,18 @@ std::string FloatCharacteristics::describe(net::ConnectionInfo *sender)
 
 	result += wrap("perms") + ":";
 	result += "[";
-	if (premission & permission_read) result += wrap("pr") + ",";
-	if (premission & permission_write) result += wrap("pw") + ",";
-	if (premission & permission_notify) result += wrap("ev") + ",";
+	if (_permission & permission_read) result += wrap("pr") + ",";
+	if (_permission & permission_write) result += wrap("pw") + ",";
+	if (_permission & permission_notify) result += wrap("ev") + ",";
 	result = result.substr(0, result.size() - 1);
 	result += "]";
 	result += ",";
 
-	snprintf(tempStr, 16, "%X", type);
+	snprintf(tempStr, 16, "%X", _type);
 	result += wrap("type") + ":" + wrap(tempStr);
 	result += ",";
 
-	snprintf(tempStr, 16, "%hd", iid);
+	snprintf(tempStr, 16, "%hd", getID());
 	result += wrap("iid") + ":" + tempStr;
 	result += ",";
 
@@ -78,4 +88,10 @@ std::string FloatCharacteristics::describe(net::ConnectionInfo *sender)
 	result += "\"format\":\"float\"";
 
 	return "{" + result + "}";
+}
+
+void FloatCharacteristics::setValueChangeCB(
+	std::function<void(float oldValue, float newValue, void* sender)> cb)
+{
+	_valueChangeCB = cb;
 }

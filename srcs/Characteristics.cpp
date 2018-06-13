@@ -3,20 +3,37 @@
 #include <Accessory.h>
 #include <net/HAPService.h>
 
-#include <thread>
-
 using namespace hap;
 
-Characteristics::Characteristics(char_type _type, permission _premission)
-	: type(_type), premission(_premission)
+Characteristics::Characteristics(char_type type, permission permission)
+	: _type(type), _permission(permission)
 {
-
 }
 
-void Characteristics::setValue(std::string str)
+uint16_t Characteristics::getID() const
 {
-	setValue(str, nullptr);
+	return _id;
+}
+
+uint16_t Characteristics::getAID() const
+{
+	return _aid;
+}
+
+void Characteristics::setValue(const std::string& newValue)
+{
+	setValue(newValue, nullptr);
 	notify();
+}
+
+bool Characteristics::writable() const
+{ 
+	return _permission & permission_write;
+}
+
+bool Characteristics::notifiable() const
+{ 
+	return _permission & permission_notify;
 }
 
 void Characteristics::notify()
@@ -28,11 +45,11 @@ void Characteristics::notify()
 	net::BroadcastInfo_ptr info = std::make_shared<net::BroadcastInfo>();
 	info->sender = this;
 	info->desc += "{\"characteristics\":[{\"aid\": ";
-	info->desc += std::to_string(accessory->aid);
+	info->desc += std::to_string(_aid);
 	info->desc += ", \"iid\": ";
-	info->desc += std::to_string(iid);
+	info->desc += std::to_string(_id);
 	info->desc += ", \"value\": ";
-	info->desc += value(nullptr);
+	info->desc += getValue();
 	info->desc += "}]}";
 
 	net::HAPService::getInstance().announce(info);

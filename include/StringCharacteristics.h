@@ -3,6 +3,7 @@
 
 #include "Characteristics.h"
 
+#include <cstdint>
 #include <functional>
 #include <string>
 
@@ -10,17 +11,20 @@ namespace hap {
 
 class StringCharacteristics: public Characteristics {
 public:
-    std::string _value;
-    const unsigned short maxLen;
-	std::function<void(std::string oldValue, std::string newValue, net::ConnectionInfo* sender)> valueChangeFunctionCall;
+	StringCharacteristics(char_type type, permission permission, uint16_t _maxLen = UINT16_MAX);
 
-	StringCharacteristics(char_type _type, permission _premission, unsigned short _maxLen);
+	std::string getValue() override;
 
-	virtual std::string value(net::ConnectionInfo *sender);
+	void setValue(const std::string& newValue, void* sender) override;
 
-	virtual void setValue(std::string str, net::ConnectionInfo *sender);
+	std::string describe() override;
 
-	virtual std::string describe(net::ConnectionInfo *sender);
+	void setValueChangeCB(std::function<void(const std::string& oldValue, const std::string& newValue, void* sender)> cb = nullptr);
+
+private:
+	std::string _value;
+	const uint16_t _maxLen;
+	std::function<void(const std::string& oldValue, const std::string& newValue, void* sender)> _valueChangeCB;
 };
 
 }

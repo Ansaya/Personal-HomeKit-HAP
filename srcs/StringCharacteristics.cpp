@@ -4,54 +4,60 @@
 
 using namespace hap;
 
-StringCharacteristics::StringCharacteristics(char_type _type, permission _premission, unsigned short _maxLen)
-	: Characteristics(_type, _premission), maxLen(_maxLen)
+StringCharacteristics::StringCharacteristics(
+	char_type type, permission permission, uint16_t maxLen)
+	: Characteristics(type, permission), _maxLen(maxLen)
 {
 }
 
-std::string StringCharacteristics::value(net::ConnectionInfo *sender)
+std::string StringCharacteristics::getValue()
 {
-	if (perUserQuery != nullptr && sender != nullptr)
-		return "\"" + perUserQuery(sender) + "\"";
+	std::unique_lock<std::mutex> lock(_valueHandle);
+
 	return "\"" + _value + "\"";
 }
 
-void StringCharacteristics::setValue(std::string str, net::ConnectionInfo *sender)
+void StringCharacteristics::setValue(const std::string& newValue, void* sender)
 {
-	if (valueChangeFunctionCall != nullptr && sender != nullptr)
-		valueChangeFunctionCall(_value, str, sender);
-	_value = str;
+	std::string _newValue = newValue.length() > _maxLen ? newValue.substr(0, _maxLen) 
+		: newValue;
+
+	std::unique_lock<std::mutex> lock(_valueHandle);
+
+	if (_valueChangeCB != nullptr && sender != nullptr)
+		_valueChangeCB(_value, newValue, sender);
+	_value = newValue;
 }
 
-std::string StringCharacteristics::describe(net::ConnectionInfo *sender)
+std::string StringCharacteristics::describe()
 {
 	std::string result;
 	char tempStr[4];
 
-	if (premission & permission_read) {
-		result += wrap("value") + ":" + value(sender).c_str();
+	if (_permission & permission_read) {
+		result += wrap("value") + ":" + getValue();
 		result += ",";
 	}
 
 	result += wrap("perms") + ":";
 	result += "[";
-	if (premission & permission_read) result += wrap("pr") + ",";
-	if (premission & permission_write) result += wrap("pw") + ",";
-	if (premission & permission_notify) result += wrap("ev") + ",";
+	if (_permission & permission_read) result += wrap("pr") + ",";
+	if (_permission & permission_write) result += wrap("pw") + ",";
+	if (_permission & permission_notify) result += wrap("ev") + ",";
 	result = result.substr(0, result.size() - 1);
 	result += "]";
 	result += ",";
 
-	snprintf(tempStr, 4, "%X", type);
+	snprintf(tempStr, 4, "%X", _type);
 	result += wrap("type") + ":" + wrap(tempStr);
 	result += ",";
 
-	snprintf(tempStr, 4, "%hd", iid);
+	snprintf(tempStr, 4, "%hd", getID());
 	result += wrap("iid") + ":" + tempStr;
 	result += ",";
 
-	if (maxLen > 0) {
-		snprintf(tempStr, 4, "%hd", maxLen);
+	if (_maxLen > 0) {
+		snprintf(tempStr, 4, "%hd", _maxLen);
 		result += wrap("maxLen") + ":" + tempStr;
 		result += ",";
 	}
@@ -59,4 +65,10 @@ std::string StringCharacteristics::describe(net::ConnectionInfo *sender)
 	result += "\"format\":\"string\"";
 
 	return "{" + result + "}";
+}
+
+void StringCharacteristics::setValueChangeCB(
+	std::function<void(const std::string& oldValue, const std::string& newValue, void* sender)> cb)
+{
+	_valueChangeCB = cb;
 }

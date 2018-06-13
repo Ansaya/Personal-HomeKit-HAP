@@ -1,121 +1,156 @@
 #include <Accessory.h>
 
 #include <BoolCharacteristics.h>
+#include <Characteristics.h>
 #include <CharType.h>
+#include <Service.h>
 #include <ServiceType.h>
 #include <StringCharacteristics.h>
 
 #include "../Helpers.h"
 
+#include <algorithm>
+
 using namespace hap;
 
-void Accessory::addService(Service *ser) {
-	ser->serviceID = ++numberOfInstance;
-	_services.push_back(ser);
+Accessory::Accessory() : _instancesID(std::make_shared<std::atomic_ushort>(1))
+{
 }
 
-void Accessory::addInfoService(std::string accName, std::string manufactuerName, std::string modelName, std::string serialNumber,
-	std::function<void(bool oldValue, bool newValue, net::ConnectionInfo *sender)> identifyCallback)
+Accessory::~Accessory()
 {
-	Service *infoService = new Service(service_accessoryInfo);
+}
+
+uint16_t Accessory::getID() const
+{
+	return _id;
+}
+
+void Accessory::addService(Service_ptr newService)
+{
+	newService->_id = _instancesID->fetch_add(1);
+	newService->_aid = _id;
+	
+	std::unique_lock<std::mutex> serviceLock(newService->_characteristicsList);
+
+	for (auto& it : newService->_characteristics) {
+		it->_id = _instancesID->fetch_add(1);
+		it->_aid = _id;
+	}
+
+	newService->_parentInstancesID = _instancesID;
+
+	std::unique_lock<std::mutex> lock(_servicesList);
+
+	_services.push_back(newService);
+}
+
+void Accessory::addInfoService(std::string name, std::string manufactuer, std::string model, std::string serialNumber,
+	std::function<void(bool oldValue, bool newValue, void* sender)> identifyCB)
+{
+	Service_ptr infoService = std::make_shared<Service>(service_accessoryInfo);
 	addService(infoService);
 
-	StringCharacteristics *accNameCha = new StringCharacteristics(char_serviceName, permission_read, 0);
-	accNameCha->Characteristics::setValue(accName);
-	addCharacteristics(infoService, accNameCha);
+	StringCharacteristics *serviceNameChar = new StringCharacteristics(char_serviceName, permission_read);
+	serviceNameChar->Characteristics::setValue(name);
 
-	StringCharacteristics *manNameCha = new StringCharacteristics(char_manufactuer, permission_read, 0);
-	manNameCha->Characteristics::setValue(manufactuerName);
-	addCharacteristics(infoService, manNameCha);
+	StringCharacteristics *manufacturerNameChar = new StringCharacteristics(char_manufactuer, permission_read);
+	manufacturerNameChar->Characteristics::setValue(manufactuer);
 
-	StringCharacteristics *modelNameCha = new StringCharacteristics(char_modelName, permission_read, 0);
-	modelNameCha->Characteristics::setValue(modelName);
-	addCharacteristics(infoService, modelNameCha);
+	StringCharacteristics *modelNameChar = new StringCharacteristics(char_modelName, permission_read);
+	modelNameChar->Characteristics::setValue(model);
 
-	StringCharacteristics *serialNameCha = new StringCharacteristics(char_serialNumber, permission_read, 0);
-	serialNameCha->Characteristics::setValue(serialNumber);
-	addCharacteristics(infoService, serialNameCha);
+	StringCharacteristics *serialNumberChar = new StringCharacteristics(char_serialNumber, permission_read);
+	serialNumberChar->Characteristics::setValue(serialNumber);
 
-	BoolCharacteristics *identify = new BoolCharacteristics(char_identify, permission_write);
-	identify->Characteristics::setValue("false");
-	identify->valueChangeFunctionCall = identifyCallback;
-	addCharacteristics(infoService, identify);
+	BoolCharacteristics *identifyChar = new BoolCharacteristics(char_identify, permission_write);
+	identifyChar->Characteristics::setValue("false");
+	identifyChar->setValueChangeCB(identifyCB);
+
+	infoService->addCharacteristic(std::shared_ptr<Characteristics>(serviceNameChar));
+	infoService->addCharacteristic(std::shared_ptr<Characteristics>(manufacturerNameChar));
+	infoService->addCharacteristic(std::shared_ptr<Characteristics>(modelNameChar));
+	infoService->addCharacteristic(std::shared_ptr<Characteristics>(serialNumberChar));
+	infoService->addCharacteristic(std::shared_ptr<Characteristics>(identifyChar));
 }
 
-void Accessory::addCharacteristics(Service *ser, Characteristics *cha) {
-	cha->iid = ++numberOfInstance;
-	cha->accessory = this;
-	ser->_characteristics.push_back(cha);
-}
+bool Accessory::removeService(Service_ptr ser)
+{
+	std::unique_lock<std::mutex> lock(_servicesList);
 
-bool Accessory::removeService(Service *ser) {
-	bool exist = false;
-	for (auto it = _services.begin(); it != _services.end(); it++) {
+	for (auto it = _services.begin(); it != _services.end(); ++it) {
 		if (*it == ser) {
 			_services.erase(it);
-			exist = true;
+			return true;
 		}
 	}
-	return exist;
+
+	return false;
 }
 
-bool Accessory::removeCharacteristics(Characteristics *cha) {
-	bool exist = false;
-	for (auto it = _services.begin(); it != _services.end(); it++) {
-		for (auto jt = (*it)->_characteristics.begin(); jt != (*it)->_characteristics.end(); jt++) {
-			if (*jt == cha) {
-				(*it)->_characteristics.erase(jt);
-				exist = true;
-			}
-		}
-	}
-	return exist;
-}
-
-Accessory::Accessory()
+bool Accessory::removeCharacteristics(Characteristics_ptr characteristic)
 {
+	std::unique_lock<std::mutex> lock(_servicesList);
 
+	for (auto& it : _services) {
+		if (it->removeCharacteristic(characteristic))
+			return true;
+	}
+
+	return false;
 }
 
-short Accessory::numberOfService() { return _services.size(); }
+uint16_t Accessory::servicesCount()
+{ 
+	return _services.size();
+}
 
-Service *Accessory::serviceAtIndex(int index) {
-	for (auto it = _services.begin(); it != _services.end(); it++) {
-		if ((*it)->serviceID == index) {
-			return *it;
-		}
-	}
+Service_ptr Accessory::getService(int id)
+{
+	std::unique_lock<std::mutex> lock(_servicesList);
+
+	auto s = std::find_if(_services.begin(), _services.end(), 
+		[id](const Service_ptr sp) { return sp->getID() == id; });
+
+	if (s != _services.end())
+		return *s;
+
 	return nullptr;
 }
 
-Characteristics *Accessory::characteristicsAtIndex(int index) {
-	for (auto it = _services.begin(); it != _services.end(); it++) {
-		for (auto jt = (*it)->_characteristics.begin(); jt != (*it)->_characteristics.end(); jt++) {
-			if ((*jt)->iid == index) {
-				return *jt;
-			}
-		}
+Characteristics_ptr Accessory::getCharacteristic(int id)
+{
+	std::unique_lock<std::mutex> lock(_servicesList);
+
+	for (auto& it : _services) {
+		Characteristics_ptr c = it->getCharacteristic(id);
+		if (c != nullptr)
+			return c;
 	}
+
 	return nullptr;
 }
 
-std::string Accessory::describe(net::ConnectionInfo *sender) {
+std::string Accessory::describe()
+{
 	std::string keys[2];
 	std::string values[2];
 
 	{
 		keys[0] = "aid";
 		char temp[8];
-		sprintf(temp, "%d", aid);
+		sprintf(temp, "%d", _id);
 		values[0] = temp;
 	}
 
 	{
+		std::unique_lock<std::mutex> lock(_servicesList);
+
 		//Form services list
-		int noOfService = numberOfService();
+		int noOfService = servicesCount();
 		std::string *services = new std::string[noOfService];
 		for (int i = 0; i < noOfService; i++) {
-			services[i] = _services[i]->describe(sender);
+			services[i] = _services[i]->describe();
 		}
 		keys[1] = "services";
 		values[1] = arrayWrap(services, noOfService);

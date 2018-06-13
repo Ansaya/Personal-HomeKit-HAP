@@ -6,11 +6,12 @@
 
 #include <atomic>
 #include <cstdint>
-#include <list>
+#include <memory>
 #include <mutex>
 #include <poll.h>
 #include <string>
 #include <thread>
+#include <vector>
 
 namespace hap {
 
@@ -22,13 +23,15 @@ public:
 
 	~ConnectionInfo();
 
+	const std::string &getSocketName() const;
+
 	void send(const std::string& data);
 
-	void addNotify(void *target, int aid, int iid);
+	void addNotify(const void *target, int aid, int iid);
 
-	bool isNotified(void *target);
+	bool isNotified(const void *target);
 
-	void removeNotify(void *target);
+	void removeNotify(const void *target);
 
 	void clearNotify();
 
@@ -48,7 +51,8 @@ private:
 	uint8_t controllerToAccessoryKey[32];
 	uint8_t accessoryToControllerKey[32];
 
-	std::list<void*> _notificationList;
+	std::mutex _notificationsList;
+	std::vector<const void*> _notifications;
 
 	void _clientSocketLoop(int wakeFD);
 
@@ -64,6 +68,8 @@ private:
 
 	void Poly1305_GenKey(const uint8_t * key, uint8_t * buf, uint16_t len, bool dataWithLength, uint8_t* verify) const;
 };
+
+typedef std::shared_ptr<ConnectionInfo> ConnectionInfo_ptr;
 
 }
 

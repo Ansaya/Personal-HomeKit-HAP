@@ -2,11 +2,11 @@
 #define HAP_CHARACTERISTICS
 
 #include "CharType.h"
-#include "net/ConnectionInfo.h"
 #include "hapDefines.h"
 #include "Permission.h"
 
-#include <functional>
+#include <cstdint>
+#include <mutex>
 #include <string>
 
 
@@ -14,27 +14,39 @@ namespace hap {
 
 class Characteristics {
 public:
-    Accessory *accessory;
-    const unsigned int type;
-    const int premission;
-    int iid;
-	std::function<std::string(net::ConnectionInfo* sender)> perUserQuery;
+	Characteristics(char_type type, permission premission);
 
-	Characteristics(char_type _type, permission _premission);
+	uint16_t getID() const;
+
+	uint16_t getAID() const;
     
-	virtual std::string value(net::ConnectionInfo *sender) = 0;
+	virtual std::string getValue() = 0;
     
-	void setValue(std::string str);
+	void setValue(const std::string& newValue);
     
-	virtual void setValue(std::string str, net::ConnectionInfo *sender) = 0;
+	virtual void setValue(const std::string& newValue, void* sender) = 0;
     
-	virtual std::string describe(net::ConnectionInfo *sender) = 0;
+	virtual std::string describe() = 0;
     
-	bool writable() { return premission & permission_write; }
+	bool writable() const;
     
-	bool notifiable() { return premission & permission_notify; }
+	bool notifiable() const;
     
 	void notify();
+
+protected:
+	const char_type _type;
+	const permission _permission;
+	std::mutex _valueHandle;
+
+private:
+	uint16_t _id;
+	uint16_t _aid;
+
+	friend class AccessorySet;
+	friend class Accessory;
+	friend class Service;
+
 };
 
 }
