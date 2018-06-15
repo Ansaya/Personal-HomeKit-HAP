@@ -189,6 +189,11 @@ void HAPService::stop()
 #endif
 }
 
+bool HAPService::isRunning() const
+{
+	return _running.load();
+}
+
 void HAPService::announce(BroadcastInfo_ptr info)
 {
 	if (!_running.load()) return;

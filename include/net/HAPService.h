@@ -5,6 +5,7 @@
 #define HAPServiceMaximumConnections 5
 
 #include "../DeviceType.h"
+#include "../hapDefines.h"
 #include "ConnectionInfo.h"
 
 #include <atomic>
@@ -36,6 +37,8 @@ namespace net {
 		bool setupAndListen(hap::deviceType type);
 
 		void stop();
+
+		bool isRunning() const;
 
 		void announce(BroadcastInfo_ptr info);
 

@@ -16,6 +16,18 @@ namespace hap {
 	class Characteristics;
 	typedef std::shared_ptr<Characteristics> Characteristics_ptr;
 
+	class BoolCharacteristics;
+	typedef std::shared_ptr<BoolCharacteristics> BoolCharacteristics_ptr;
+
+	class IntCharacteristics;
+	typedef std::shared_ptr<IntCharacteristics> IntCharacteristics_ptr;
+
+	class FloatCharacteristics;
+	typedef std::shared_ptr<FloatCharacteristics> FloatCharacteristics_ptr;
+
+	class StringCharacteristics;
+	typedef std::shared_ptr<StringCharacteristics> StringCharacteristics_ptr;
+
 }
 
 #endif
