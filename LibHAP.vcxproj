@@ -181,6 +181,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="License" />
+    <None Include="pre_install.sh" />
     <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>

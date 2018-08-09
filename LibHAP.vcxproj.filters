@@ -321,6 +321,7 @@
   <ItemGroup>
     <None Include="License" />
     <None Include="README.md" />
+    <None Include="pre_install.sh" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="SerivceList.txt" />

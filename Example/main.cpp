@@ -81,7 +81,7 @@ int main(int argc, const char * argv[]) {
 
 	net::HAPService::getInstance().setupAndListen(deviceType_bridge);
 
-	printf("Press a ket to exit...\n");
+	printf("Press a key to exit...\n");
 	getchar();
 
 	net::HAPService::getInstance().stop();
