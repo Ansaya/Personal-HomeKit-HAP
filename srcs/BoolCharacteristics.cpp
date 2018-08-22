@@ -25,14 +25,20 @@ void BoolCharacteristics::setValue(const std::string& newValue, void* sender)
 {
 	bool _newValue = ("true" == newValue || "1" == newValue);
 
+	bool oldValue;
+
+	{
 #ifdef HAP_THREAD_SAFE
-	std::unique_lock<std::mutex> lock(_valueHandle);
+		std::unique_lock<std::mutex> lock(_valueHandle);
 #endif
+		oldValue = _value;
 
-	if (_valueChangeCB != nullptr && sender != nullptr)
-		_valueChangeCB(_value, _newValue, sender);
+		_value = _newValue;
+	}
 
-	_value = _newValue;
+	if (_valueChangeCB != nullptr && sender != nullptr) {
+		_valueChangeCB(oldValue, _newValue, sender);
+	}
 }
 
 std::string BoolCharacteristics::describe()

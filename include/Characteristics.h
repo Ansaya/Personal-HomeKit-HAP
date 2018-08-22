@@ -22,7 +22,7 @@ public:
     
 	virtual std::string getValue() = 0;
     
-	void setValue(const std::string& newValue);
+	virtual void setValue(const std::string& newValue);
     
 	virtual void setValue(const std::string& newValue, void* sender) = 0;
     

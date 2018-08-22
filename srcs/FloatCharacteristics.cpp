@@ -1,4 +1,5 @@
 #include <FloatCharacteristics.h>
+#include <../Configuration.h>
 
 #include "../Helpers.h"
 
@@ -28,14 +29,20 @@ void FloatCharacteristics::setValue(const std::string& newValue, void* sender)
 	if (temp < _minVal)
 		temp = _minVal;
 
+	float oldValue;
+
+	{
 #ifdef HAP_THREAD_SAFE
-	std::unique_lock<std::mutex> lock(_valueHandle);
+		std::unique_lock<std::mutex> lock(_valueHandle);
 #endif
+		oldValue = _value;
 
-	if (_valueChangeCB != nullptr && sender != nullptr)
-		_valueChangeCB(_value, temp, sender);
+		_value = temp;
+	}
 
-	_value = temp;
+	if (_valueChangeCB != nullptr && sender != nullptr) {
+		_valueChangeCB(oldValue, temp, sender);
+	}
 }
 
 std::string FloatCharacteristics::describe()

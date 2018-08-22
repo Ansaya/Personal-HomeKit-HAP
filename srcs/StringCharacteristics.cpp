@@ -1,4 +1,5 @@
 #include <StringCharacteristics.h>
+#include <../Configuration.h>
 
 #include "../Helpers.h"
 
@@ -24,13 +25,20 @@ void StringCharacteristics::setValue(const std::string& newValue, void* sender)
 	std::string _newValue = newValue.length() > _maxLen ? newValue.substr(0, _maxLen) 
 		: newValue;
 
-#ifdef HAP_THREAD_SAFE
-	std::unique_lock<std::mutex> lock(_valueHandle);
-#endif
+	std::string oldValue;
 
-	if (_valueChangeCB != nullptr && sender != nullptr)
-		_valueChangeCB(_value, newValue, sender);
-	_value = newValue;
+	{
+#ifdef HAP_THREAD_SAFE
+		std::unique_lock<std::mutex> lock(_valueHandle);
+#endif
+		oldValue = _value;
+
+		_value = _newValue;
+	}
+
+	if (_valueChangeCB != nullptr && sender != nullptr) {
+		_valueChangeCB(oldValue, _newValue, sender);
+	}
 }
 
 std::string StringCharacteristics::describe()
