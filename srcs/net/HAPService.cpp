@@ -38,7 +38,7 @@ HAPService::~HAPService()
 	stop();
 }
 
-bool HAPService::setupAndListen(deviceType type)
+bool HAPService::setupAndListen(const std::string& name, const std::string& password)
 {
 	if (_running.load()) {
 #ifdef HAP_DEBUG
@@ -47,7 +47,16 @@ bool HAPService::setupAndListen(deviceType type)
 		return true;
 	}
 
-	_type = type;
+	if (!validatePassword(password)) {
+#ifdef HAP_DEBUG
+		printf("HAPService::setupAndListen : invalid password, check format is XXX-XX-XXX where x is 0-9 integer.\n");
+#endif
+
+		return false;
+	}
+
+	_name = name;
+	_password = password;
 
 	int retval = SRP_initialize_library();
 	if (!SRP_OK(retval)) {
@@ -114,7 +123,7 @@ bool HAPService::setupAndListen(deviceType type)
 	// Initialize DNS SD service
 	TXTRecordRef txtRecord = buildTXTRecord();
 
-	retval = DNSServiceRegister(&_netService, 0, 0, HAP_DEVICE_NAME, HAPServiceType, "", NULL,
+	retval = DNSServiceRegister(&_netService, 0, 0, _name.c_str(), HAPServiceType, "", NULL,
 		servicePort, TXTRecordGetLength(&txtRecord),
 		TXTRecordGetBytesPtr(&txtRecord), NULL, NULL);
 
@@ -198,10 +207,22 @@ void HAPService::announce(BroadcastInfo_ptr info)
 {
 	if (!_running.load()) return;
 
+#ifdef HAP_NET_THREAD_SAFE
 	std::unique_lock<std::mutex> lock(_broadcastInfoMutex);
+#endif
 
 	_broadcastInfo.push_back(info);
 	_broadcastCV.notify_all();
+}
+
+bool HAPService::validatePassword(const std::string& password)
+{
+	return password.size() == 10
+		&& std::isdigit(password[0]) && std::isdigit(password[1]) && std::isdigit(password[2])
+		&& password[3] == '-'
+		&& std::isdigit(password[4]) && std::isdigit(password[5])
+		&& password[6] == '-'
+		&& std::isdigit(password[7]) && std::isdigit(password[8]) && std::isdigit(password[9]);
 }
 
 void HAPService::listenerLoop(int wakeFD)
@@ -250,7 +271,7 @@ void HAPService::listenerLoop(int wakeFD)
 					socketName = std::string(buffer);
 			}
 
-			ConnectionInfo* newConn = new ConnectionInfo(subSocket, socketName);
+			ConnectionInfo* newConn = new ConnectionInfo(subSocket, socketName, _password);
 
 			_connections.push_back(newConn);
 
@@ -379,18 +400,22 @@ TXTRecordRef HAPService::buildTXTRecord() {
 	sprintf(buf, "%d", _currentConfiguration.load());
 	TXTRecordSetValue(&txtRecord, "c#", 1, buf);    //Configuration Number
 	TXTRecordSetValue(&txtRecord, "s#", 1, "4");    //Number of service
-	if (KeyController::getInstance().hasController())
+
 #ifdef HAP_MULTIPLE_PAIRING
-		buf[0] = '1';
+	buf[0] = '1';
 #else
+	if (KeyController::getInstance().hasController()) {
 		buf[0] = '0';
-#endif
-	else
+}
+	else {
 		buf[0] = '1';
+	}
+#endif
+		
 	TXTRecordSetValue(&txtRecord, "sf", 1, buf);    //Discoverable: 0 if has been paired
 	TXTRecordSetValue(&txtRecord, "ff", 1, "0");    //1 for MFI product
-	TXTRecordSetValue(&txtRecord, "md", strlen(HAP_DEVICE_NAME), HAP_DEVICE_NAME);    //Model Name
-	int len = sprintf(buf, "%d", _type);
+	TXTRecordSetValue(&txtRecord, "md", _name.size(), _name.c_str());    //Model Name
+	int len = sprintf(buf, "%d", hap::deviceType::deviceType_bridge);
 	TXTRecordSetValue(&txtRecord, "ci", len, buf);    //1 for MFI product
 	return txtRecord;
 }

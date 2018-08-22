@@ -1,4 +1,5 @@
 #include <Accessory.h>
+#include <../Configuration.h>
 
 #include <BoolCharacteristics.h>
 #include <Characteristics.h>
@@ -31,7 +32,9 @@ void Accessory::addService(Service_ptr newService)
 	newService->_id = _instancesID->fetch_add(1);
 	newService->_aid = _id;
 	
+#ifdef HAP_THREAD_SAFE
 	std::unique_lock<std::mutex> serviceLock(newService->_characteristicsList);
+#endif
 
 	for (auto& it : newService->_characteristics) {
 		it->_id = _instancesID->fetch_add(1);
@@ -40,7 +43,9 @@ void Accessory::addService(Service_ptr newService)
 
 	newService->_parentInstancesID = _instancesID;
 
+#ifdef HAP_THREAD_SAFE
 	std::unique_lock<std::mutex> lock(_servicesList);
+#endif
 
 	_services.push_back(newService);
 }
@@ -76,7 +81,9 @@ void Accessory::addInfoService(std::string name, std::string manufactuer, std::s
 
 bool Accessory::removeService(Service_ptr ser)
 {
+#ifdef HAP_THREAD_SAFE
 	std::unique_lock<std::mutex> lock(_servicesList);
+#endif
 
 	for (auto it = _services.begin(); it != _services.end(); ++it) {
 		if (*it == ser) {
@@ -90,7 +97,9 @@ bool Accessory::removeService(Service_ptr ser)
 
 bool Accessory::removeCharacteristics(Characteristics_ptr characteristic)
 {
+#ifdef HAP_THREAD_SAFE
 	std::unique_lock<std::mutex> lock(_servicesList);
+#endif
 
 	for (auto& it : _services) {
 		if (it->removeCharacteristic(characteristic))
@@ -107,7 +116,9 @@ uint16_t Accessory::servicesCount()
 
 Service_ptr Accessory::getService(int id)
 {
+#ifdef HAP_THREAD_SAFE
 	std::unique_lock<std::mutex> lock(_servicesList);
+#endif
 
 	auto s = std::find_if(_services.begin(), _services.end(), 
 		[id](const Service_ptr sp) { return sp->getID() == id; });
@@ -120,7 +131,9 @@ Service_ptr Accessory::getService(int id)
 
 Characteristics_ptr Accessory::getCharacteristic(int id)
 {
+#ifdef HAP_THREAD_SAFE
 	std::unique_lock<std::mutex> lock(_servicesList);
+#endif
 
 	for (auto& it : _services) {
 		Characteristics_ptr c = it->getCharacteristic(id);
@@ -144,7 +157,9 @@ std::string Accessory::describe()
 	}
 
 	{
+#ifdef HAP_THREAD_SAFE
 		std::unique_lock<std::mutex> lock(_servicesList);
+#endif
 
 		//Form services list
 		int noOfService = servicesCount();

@@ -4,6 +4,7 @@
 
 #include <cstring>
 #include <fstream>
+#include <cstdio>
 
 using namespace hap;
 
@@ -14,11 +15,13 @@ KeyController& KeyController::getInstance()
 	return instance;
 }
 
-KeyController::KeyController()
+KeyController::KeyController() : _filePath("./hap_client_keys")
 {
+	std::unique_lock<std::mutex> lock(_file);
+
 	std::ifstream fs;
 
-	fs.open(HAP_PAIR_RECORDS_PATH, std::ifstream::in);
+	fs.open(_filePath, std::ifstream::in);
 
 	char buffer[70];
 	bzero(buffer, 70);
@@ -36,9 +39,33 @@ KeyController::KeyController()
 	fs.close();
 }
 
+bool KeyController::setKeyRecordPath(const std::string& filePath)
+{
+	std::ofstream fs;
+	fs.open(filePath);
+
+	if (fs.fail()) {
+		return false;
+	}
+	else {
+		std::unique_lock<std::mutex> lock(_file);
+
+		std::ifstream oldfs;
+		oldfs.open(_filePath, std::ifstream::in);
+
+		fs << oldfs.rdbuf();
+
+		oldfs.close();
+		std::remove(_filePath.c_str());
+
+		_filePath = filePath;
+		return true;
+	}
+}
+
 void KeyController::resetControllerRecord() {
 	std::ofstream fs;
-	fs.open(HAP_PAIR_RECORDS_PATH, std::ofstream::out | std::ofstream::trunc);
+	fs.open(_filePath, std::ofstream::out | std::ofstream::trunc);
 }
 
 bool KeyController::hasController() const {
@@ -47,37 +74,38 @@ bool KeyController::hasController() const {
 
 void KeyController::addControllerKey(const KeyRecord& record) {
 	if (doControllerKeyExist(record) == false) {
+		std::unique_lock<std::mutex> lock(_file);
+
 		_records.push_back(record);
 
-		std::ofstream fs;
-		fs.open(HAP_PAIR_RECORDS_PATH, std::ofstream::trunc);
-
-		for (auto& it : _records) {
-			fs.write(it.controllerID, 36);
-			fs.write(it.publicKey, 32);
-		}
-		fs.close();
-
+		_writeBack();
 	}
 }
 
-bool KeyController::doControllerKeyExist(const KeyRecord& record) const {
+bool KeyController::doControllerKeyExist(const KeyRecord& record) const 
+{
 	for (auto& it : _records) {
 		if (bcmp(it.controllerID, record.controllerID, 32) == 0) return true;
 	}
 	return false;
 }
 
-void KeyController::removeControllerKey(const KeyRecord& record) {
+void KeyController::removeControllerKey(const KeyRecord& record)
+{
+	std::unique_lock<std::mutex> lock(_file);
+
 	for (auto& it : _records) {
 		if (bcmp(it.controllerID, record.controllerID, 32) == 0) {
 			_records.push_back(record);
+
+			_writeBack();
 			return;
 		}
 	}
 }
 
-const KeyRecord KeyController::getControllerKey(const char key[32]) const {
+const KeyRecord KeyController::getControllerKey(const char key[32]) const 
+{
 	for (auto& it : _records) {
 		if (bcmp(key, it.controllerID, 32) == 0) return it;
 	}
@@ -85,4 +113,16 @@ const KeyRecord KeyController::getControllerKey(const char key[32]) const {
 	KeyRecord emptyRecord;
 	bzero(emptyRecord.controllerID, 32);
 	return emptyRecord;
+}
+
+void KeyController::_writeBack()
+{
+	std::ofstream fs;
+	fs.open(_filePath, std::ofstream::trunc);
+
+	for (auto& it : _records) {
+		fs.write(it.controllerID, 36);
+		fs.write(it.publicKey, 32);
+	}
+	fs.close();
 }

@@ -1,4 +1,5 @@
 #include <AccessorySet.h>
+#include <../Configuration.h>
 
 #include <Accessory.h>
 #include <Service.h>
@@ -25,7 +26,9 @@ uint16_t AccessorySet::accessoriesCount() {
 
 Accessory_ptr AccessorySet::getAccessory(uint16_t id)
 {
+#ifdef HAP_THREAD_SAFE
 	std::unique_lock<std::mutex> lock(_accessoriesList);
+#endif
 
 	auto a = std::find_if(_accessories.begin(), _accessories.end(), 
 		[id](const Accessory_ptr ap) { return ap->getID() == id; });
@@ -40,25 +43,33 @@ void AccessorySet::addAccessory(Accessory_ptr accessory)
 {
 	accessory->_id = _accessoryID.fetch_add(1);
 
+#ifdef HAP_THREAD_SAFE
 	std::unique_lock<std::mutex> servicesLock(accessory->_servicesList);
+#endif
 
 	for (auto& s : accessory->_services) {
 		s->_aid = accessory->_id;
 
+#ifdef HAP_THREAD_SAFE
 		std::unique_lock<std::mutex> charsLock(s->_characteristicsList);
+#endif
 
 		for (auto& c : s->_characteristics)
 			c->_aid = accessory->_id;
 	}
 
+#ifdef HAP_THREAD_SAFE
 	std::unique_lock<std::mutex> lock(_accessoriesList);
+#endif
 
 	_accessories.push_back(accessory);
 }
 
 bool AccessorySet::removeAccessory(Accessory_ptr acc)
 {
+#ifdef HAP_THREAD_SAFE
 	std::unique_lock<std::mutex> lock(_accessoriesList);
+#endif
 
 	for (auto it = _accessories.begin(); it != _accessories.end(); ++it) {
 		if (*it == acc) {
@@ -72,9 +83,9 @@ bool AccessorySet::removeAccessory(Accessory_ptr acc)
 
 std::string AccessorySet::describe()
 {
-	std::unique_lock<std::mutex> lock(_accessoriesList);
+	//std::unique_lock<std::mutex> lock(_accessoriesList);
 
-	int numberOfAcc = accessoriesCount();
+	int numberOfAcc = _accessories.size();
 	std::string *desc = new std::string[numberOfAcc];
 	for (int i = 0; i < numberOfAcc; i++) {
 		desc[i] = _accessories[i]->describe();

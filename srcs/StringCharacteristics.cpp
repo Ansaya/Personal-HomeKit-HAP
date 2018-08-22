@@ -12,7 +12,9 @@ StringCharacteristics::StringCharacteristics(
 
 std::string StringCharacteristics::getValue()
 {
+#ifdef HAP_THREAD_SAFE
 	std::unique_lock<std::mutex> lock(_valueHandle);
+#endif
 
 	return "\"" + _value + "\"";
 }
@@ -22,7 +24,9 @@ void StringCharacteristics::setValue(const std::string& newValue, void* sender)
 	std::string _newValue = newValue.length() > _maxLen ? newValue.substr(0, _maxLen) 
 		: newValue;
 
+#ifdef HAP_THREAD_SAFE
 	std::unique_lock<std::mutex> lock(_valueHandle);
+#endif
 
 	if (_valueChangeCB != nullptr && sender != nullptr)
 		_valueChangeCB(_value, newValue, sender);

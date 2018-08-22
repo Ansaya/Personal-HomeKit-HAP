@@ -72,8 +72,8 @@ static const uint8_t accessorySecretKey[32] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x
 	0x02, 0x4E, 0x08, 0x8A, 0x67, 0xCC, 0x74 };
 
 
-ConnectionInfo::ConnectionInfo(int socketFD, const std::string& socketName) 
-	: _socketFD(socketFD), _socketName(socketName), _connected(true), _verified(false)
+ConnectionInfo::ConnectionInfo(int socketFD, const std::string& socketName, const std::string& pinCode) 
+	: _socketFD(socketFD), _socketName(socketName), _pinCode(pinCode), _connected(true), _verified(false)
 {
 	// Will be unlocked once the new client has been verified
 	_socketWrite.lock();
@@ -114,7 +114,9 @@ void ConnectionInfo::send(const std::string& data)
 	if (!_connected.load())
 		return;
 
+#ifdef HAP_NET_THREAD_SAFE
 	std::unique_lock<std::mutex> writeLock(_socketWrite);
+#endif
 
 	std::string encryptedData = encrypt(data, (uint8_t*)&_nonceSend, 
 		accessoryToControllerKey, sizeof(accessoryToControllerKey), false);
@@ -125,7 +127,9 @@ void ConnectionInfo::send(const std::string& data)
 
 void ConnectionInfo::addNotify(const void *target, int aid, int iid)
 {
+#ifdef HAP_NET_THREAD_SAFE
 	std::unique_lock<std::mutex> lock(_notificationsList);
+#endif
 
 	_notifications.push_back(target);
 
@@ -136,7 +140,9 @@ void ConnectionInfo::addNotify(const void *target, int aid, int iid)
 
 bool ConnectionInfo::isNotified(const void *target)
 {
+#ifdef HAP_NET_THREAD_SAFE
 	std::unique_lock<std::mutex> lock(_notificationsList);
+#endif
 
 	for (auto& it : _notifications)
 		if (it == target)
@@ -147,7 +153,9 @@ bool ConnectionInfo::isNotified(const void *target)
 
 void ConnectionInfo::removeNotify(const void *target)
 {
+#ifdef HAP_NET_THREAD_SAFE
 	std::unique_lock<std::mutex> lock(_notificationsList);
+#endif
 
 	std::remove_if(_notifications.begin(), _notifications.end(),
 		[target](const void * v) { return v == target; });
@@ -326,7 +334,7 @@ Response_ptr ConnectionInfo::_handlePairSetup(Message& request)
 		int modulusSize = sizeof(modulusStr) / sizeof(modulusStr[0]);
 		SRP_set_params(srp, modulusStr, modulusSize,
 			generator, sizeof(generator), (uint8_t*)&salt.front(), salt.length());
-		SRP_set_auth_password(srp, HAP_DEVICE_PASSWORD);
+		SRP_set_auth_password(srp, _pinCode.c_str());
 		cstr* publicKey = NULL;
 		SRP_gen_pub(srp, &publicKey);
 

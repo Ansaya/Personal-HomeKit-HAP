@@ -196,6 +196,7 @@
       <ExceptionHandling>Disabled</ExceptionHandling>
       <CAdditionalWarning>switch;no-deprecated-declarations;empty-body;no-conversion;return-type;parentheses;no-pointer-sign;no-format;uninitialized;unreachable-code;unused-function;unused-value;unused-variable</CAdditionalWarning>
       <CppAdditionalWarning>switch;no-deprecated-declarations;empty-body;no-conversion;return-type;parentheses;no-format;uninitialized;unreachable-code;unused-function;unused-value;unused-variable</CppAdditionalWarning>
+      <PreprocessorDefinitions>HAP_DEBUG</PreprocessorDefinitions>
     </ClCompile>
     <RemotePostBuildEvent>
       <Command>sudo ln -sf $(RemoteOutDir)$(TargetFileName) /usr/local/lib/$(TargetFileName); if [ ! -L /usr/local/include/hap ]; then sudo ln -sf $(RemoteProjectDir)/include /usr/local/include/hap; fi;</Command>

@@ -34,7 +34,16 @@ namespace net {
 
 		~HAPService();
 
-		bool setupAndListen(hap::deviceType type);
+		/**
+		 *	@brief Initialize and start the Apple HomeKit bridge service
+		 *
+		 *	@note Client keys are stored in ./hap_client_keys by default, to change key file
+		 *		  path call KeyController::setKeyRecordPath method
+		 *
+		 *	@param name service name to show
+		 *	@param password pin code to require on client connection (format needed is XXX-XX-XXX, where X is an integer number)
+		 */
+		bool setupAndListen(const std::string& name, const std::string& password);
 
 		void stop();
 
@@ -42,9 +51,21 @@ namespace net {
 
 		void announce(BroadcastInfo_ptr info);
 
+		/**
+		 *	@brief Check if given string is a valid password for the HAP service
+		 *
+		 *	@note HAP password should be formatted as XXX-XX-XXX where X is an integer number 0-9
+		 *
+		 *	@param password password string to be validated
+		 *
+		 *	@return True if the password is valid, false else
+		 */
+		bool validatePassword(const std::string& password);
+
 	private:
+		std::string _name;
+		std::string _password;
 		std::atomic_bool _running;
-		hap::deviceType _type;
 		int _socket;
 		DNSServiceRef _netService;
 

@@ -19,7 +19,14 @@ namespace net {
 
 class ConnectionInfo {
 public:
-	ConnectionInfo(int socketFD, const std::string& socketName);
+	/**
+	 *	@brief Initialize a new connection with listening thread for given socket
+	 *	
+	 *	@param socketFD socket file descriptor for the new client to be served
+	 *	@param socketName new client name to associate with given socket
+	 *	@param pinCode accessory pin code required for client association (XXX-XX-XXX)
+	 */
+	ConnectionInfo(int socketFD, const std::string& socketName, const std::string& pinCode);
 
 	~ConnectionInfo();
 
@@ -39,6 +46,7 @@ private:
 	int _wakeFD;
 	int _socketFD;
 	const std::string _socketName;
+	const std::string _pinCode;
 	char _buffer[4096];
 	std::thread _clientSocket;
 	std::mutex _socketWrite;

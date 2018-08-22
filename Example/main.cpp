@@ -79,7 +79,7 @@ int main(int argc, const char * argv[]) {
 
 	initAccessorySet();
 
-	net::HAPService::getInstance().setupAndListen(deviceType_bridge);
+	net::HAPService::getInstance().setupAndListen("LibHAP tester", "123-45-678");
 
 	printf("Press a key to exit...\n");
 	getchar();

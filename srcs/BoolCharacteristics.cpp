@@ -1,4 +1,5 @@
 #include <BoolCharacteristics.h>
+#include <../Configuration.h>
 
 #include "../Helpers.h"
 
@@ -11,7 +12,9 @@ BoolCharacteristics::BoolCharacteristics(char_type _type, permission _premission
 
 std::string BoolCharacteristics::getValue()
 {
+#ifdef HAP_THREAD_SAFE
 	std::unique_lock<std::mutex> lock(_valueHandle);
+#endif
 
 	if (_value)
 		return "1";
@@ -22,7 +25,9 @@ void BoolCharacteristics::setValue(const std::string& newValue, void* sender)
 {
 	bool _newValue = ("true" == newValue || "1" == newValue);
 
+#ifdef HAP_THREAD_SAFE
 	std::unique_lock<std::mutex> lock(_valueHandle);
+#endif
 
 	if (_valueChangeCB != nullptr && sender != nullptr)
 		_valueChangeCB(_value, _newValue, sender);

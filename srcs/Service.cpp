@@ -1,4 +1,5 @@
 #include <Service.h>
+#include <../Configuration.h>
 
 #include <Accessory.h>
 #include <Characteristics.h>
@@ -29,14 +30,18 @@ void Service::addCharacteristic(Characteristics_ptr newCharacteristic)
 		newCharacteristic->_aid = _aid;
 	}
 
+#ifdef HAP_THREAD_SAFE
 	std::unique_lock<std::mutex> lock(_characteristicsList);
+#endif // HAP_THREAD_SAFE
 
 	_characteristics.push_back(newCharacteristic);
 }
 
 bool Service::removeCharacteristic(Characteristics_ptr characteristic)
 {
+#ifdef HAP_THREAD_SAFE
 	std::unique_lock<std::mutex> lock(_characteristicsList);
+#endif
 
 	for (auto it = _characteristics.begin(); it != _characteristics.end(); ++it) {
 		if (*it == characteristic) {
@@ -50,7 +55,9 @@ bool Service::removeCharacteristic(Characteristics_ptr characteristic)
 
 Characteristics_ptr Service::getCharacteristic(int id)
 { 
+#ifdef HAP_THREAD_SAFE
 	std::unique_lock<std::mutex> lock(_characteristicsList);
+#endif
 
 	auto c = std::find_if(_characteristics.begin(), _characteristics.end(), 
 		[id](const Characteristics_ptr ch) { return ch->_id == id; });
@@ -76,7 +83,9 @@ std::string Service::describe()
 		values[1] = temp;
 	}
 	{
+#ifdef HAP_THREAD_SAFE
 		std::unique_lock<std::mutex> lock(_characteristicsList);
+#endif
 
 		int no = _characteristics.size();
 		std::string *chars = new std::string[no];

@@ -13,7 +13,9 @@ IntCharacteristics::IntCharacteristics(char_type type, permission premission,
 
 std::string IntCharacteristics::getValue()
 {
+#ifdef HAP_THREAD_SAFE
 	std::unique_lock<std::mutex> lock(_valueHandle);
+#endif
 
 	return std::to_string(_value);
 }
@@ -26,7 +28,9 @@ void IntCharacteristics::setValue(const std::string& newValue, void* sender)
 	if (temp < _minVal)
 		temp = _minVal;
 
+#ifdef HAP_THREAD_SAFE
 	std::unique_lock<std::mutex> lock(_valueHandle);
+#endif
 
 	if (_valueChangeCB != nullptr && sender != nullptr)
 		_valueChangeCB(_value, temp, sender);
