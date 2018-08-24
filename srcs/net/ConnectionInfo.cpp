@@ -207,15 +207,15 @@ void ConnectionInfo::_clientSocketLoop(int wakeFD)
 #ifdef HAP_DEBUG
 		printf("ConnectionInfo::_clientSocketLoop : received %zd bytes from client %s.\n", 
 			dataLength, _socketName.c_str());
-#ifdef HAP_NET_DEBUG
-		fwrite(_buffer, 1, dataLength, stdout);
-		printf("\n");
-#endif
 #endif
 
 		std::string responseData;
 
 		if (!_verified) {
+#ifdef HAP_NET_DEBUG
+			fwrite(_buffer, 1, dataLength, stdout);
+			printf("\n");
+#endif
 			// Request not encrypted
 			Message request(_buffer, dataLength);
 
@@ -232,6 +232,12 @@ void ConnectionInfo::_clientSocketLoop(int wakeFD)
 
 			if (response != nullptr) {
 				responseData = response->getResponse();
+#ifdef HAP_NET_DEBUG
+				printf("ConnectionInfo::_clientSocketLoop : crafted response for client %s :\n", 
+					_socketName.c_str());
+				fwrite(&responseData.front(), 1, responseData.length(), stdout);
+				printf("\n");
+#endif
 			}
 		}
 		else {
@@ -245,6 +251,10 @@ void ConnectionInfo::_clientSocketLoop(int wakeFD)
 			if (!data.empty()) {
 #ifdef HAP_DEBUG
 				printf("ConnectionInfo::_clientSocketLoop : data verified succesfully.\n");
+#ifdef HAP_NET_DEBUG
+				fwrite(&data.front(), 1, data.size(), stdout);
+				printf("\n");
+#endif
 #endif
 			}
 			else {
@@ -258,6 +268,13 @@ void ConnectionInfo::_clientSocketLoop(int wakeFD)
 
 			//Output return
 			std::string responseContent = _handleAccessory(data);
+
+#ifdef HAP_NET_DEBUG
+			printf("ConnectionInfo::_clientSocketLoop : crafted response for client %s :\n",
+				_socketName.c_str());
+			fwrite(&responseContent.front(), 1, responseContent.length(), stdout);
+			printf("\n");
+#endif
 
 			_socketWrite.lock();
 
@@ -279,10 +296,6 @@ void ConnectionInfo::_clientSocketLoop(int wakeFD)
 #ifdef HAP_DEBUG
 		printf("ConnectionInfo::_clientSocketLoop : sent %d bytes "
 			"to client %s\n", writtenData, _socketName.c_str());
-#ifdef HAP_NET_DEBUG
-		fwrite(&responseData.front(), 1, responseData.length(), stdout);
-		printf("\n");
-#endif
 #endif
 
 		if (_verified.load())
@@ -934,10 +947,6 @@ std::string ConnectionInfo::_handleAccessory(const std::string& request)
 	response += std::to_string(responseContent.length());
 	response += "\r\n\r\n";
 	response += responseContent;
-
-#ifdef HAP_NET_DEBUG
-	printf("ConnectionInfo::_handleAccessory : crafted reply : \n%s\n", response.c_str());
-#endif
 
 	return response;
 }

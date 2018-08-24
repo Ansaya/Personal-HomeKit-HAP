@@ -4,6 +4,7 @@
 #include <BoolCharacteristics.h>
 #include <Characteristics.h>
 #include <CharType.h>
+#include <IntCharacteristics.h>
 #include <Service.h>
 #include <ServiceType.h>
 #include <StringCharacteristics.h>
@@ -25,6 +26,50 @@ Accessory::~Accessory()
 uint16_t Accessory::getID() const
 {
 	return _id;
+}
+
+Service_ptr Accessory::addLightBulbService(StringCharacteristics_ptr& nameChar, BoolCharacteristics_ptr& onChar)
+{
+	hap::Service_ptr lightBulbService = std::make_shared<Service>(service_lightBulb);
+	addService(lightBulbService);
+
+	nameChar = std::make_shared<StringCharacteristics>(char_serviceName, permission_read);
+	onChar = std::make_shared<BoolCharacteristics>(char_on, permission_all);
+
+	lightBulbService->addCharacteristic(nameChar);
+	lightBulbService->addCharacteristic(onChar);
+
+	return lightBulbService;
+}
+
+Service_ptr Accessory::addLightBulbService(StringCharacteristics_ptr& nameChar, BoolCharacteristics_ptr& onChar, IntCharacteristics_ptr& brightChar)
+{
+	hap::Service_ptr lightBulbService = std::make_shared<Service>(service_lightBulb);
+	addService(lightBulbService);
+
+	nameChar = std::make_shared<StringCharacteristics>(char_serviceName, permission_read);
+	onChar = std::make_shared<BoolCharacteristics>(char_on, permission_all);
+	brightChar = std::make_shared<IntCharacteristics>(char_brightness, permission_all, 0, 100, 1, unit_percentage);
+
+	lightBulbService->addCharacteristic(nameChar);
+	lightBulbService->addCharacteristic(onChar);
+	lightBulbService->addCharacteristic(brightChar);
+
+	return lightBulbService;
+}
+
+Service_ptr Accessory::addSwithService(StringCharacteristics_ptr& nameChar, BoolCharacteristics_ptr& onChar)
+{
+	hap::Service_ptr switchService = std::make_shared<Service>(service_switch);
+	addService(switchService);
+
+	nameChar = std::make_shared<StringCharacteristics>(char_serviceName, permission_read);
+	onChar = std::make_shared<BoolCharacteristics>(char_on, permission_all);
+
+	switchService->addCharacteristic(nameChar);
+	switchService->addCharacteristic(onChar);
+
+	return switchService;
 }
 
 void Accessory::addService(Service_ptr newService)
@@ -70,7 +115,9 @@ void Accessory::addInfoService(std::string name, std::string manufactuer, std::s
 
 	BoolCharacteristics *identifyChar = new BoolCharacteristics(char_identify, permission_write);
 	identifyChar->Characteristics::setValue("false");
-	identifyChar->setValueChangeCB(identifyCB);
+	if (identifyCB != nullptr) {
+		identifyChar->setValueChangeCB(identifyCB);
+	}
 
 	infoService->addCharacteristic(std::shared_ptr<Characteristics>(serviceNameChar));
 	infoService->addCharacteristic(std::shared_ptr<Characteristics>(manufacturerNameChar));
