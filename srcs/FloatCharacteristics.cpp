@@ -6,13 +6,13 @@
 using namespace hap;
 
 FloatCharacteristics::FloatCharacteristics(char_type type, permission premission, 
-	float minVal, float maxVal, float step, unit charUnit)
+	double minVal, double maxVal, double step, unit charUnit)
 	: Characteristics(type, premission), 
 	_minVal(minVal), _maxVal(maxVal), _step(step), _unit(charUnit)
 {
 }
 
-std::string FloatCharacteristics::getValue()
+std::string FloatCharacteristics::getValue() const
 {
 #ifdef HAP_THREAD_SAFE
 	std::unique_lock<std::mutex> lock(_valueHandle);
@@ -23,13 +23,19 @@ std::string FloatCharacteristics::getValue()
 
 void FloatCharacteristics::setValue(const std::string& newValue, void* sender)
 {
-	float temp = std::stof(newValue);
-	if (temp > _maxVal)
-		temp = _maxVal;
-	if (temp < _minVal)
-		temp = _minVal;
+	return setValue(std::stod(newValue), sender);
+}
 
-	float oldValue;
+void FloatCharacteristics::setValue(double newValue, void* sender)
+{
+	if (newValue > _maxVal) {
+		newValue = _maxVal;
+	}
+	else if (newValue < _minVal) {
+		newValue = _minVal;
+	}
+
+	double oldValue;
 
 	{
 #ifdef HAP_THREAD_SAFE
@@ -37,35 +43,35 @@ void FloatCharacteristics::setValue(const std::string& newValue, void* sender)
 #endif
 		oldValue = _value;
 
-		_value = temp;
+		_value = newValue;
+	}
+
+	if (sender == nullptr) {
+		notify();
 	}
 
 	if (_valueChangeCB != nullptr && sender != nullptr) {
-		_valueChangeCB(oldValue, temp, sender);
+		_valueChangeCB(oldValue, newValue, sender);
 	}
 }
 
-std::string FloatCharacteristics::describe()
+std::string FloatCharacteristics::describe() const
 {
 	std::string result;
-	char tempStr[16];
 
 	if (_permission & permission_read) {
 		result += wrap("value") + ":" + getValue();
 		result += ",";
 	}
 
-	snprintf(tempStr, 16, "%f", _minVal);
-	if (_minVal != INT32_MIN)
-		result += wrap("minValue") + ":" + tempStr + ",";
+	if (_minVal != std::numeric_limits<double>::min())
+		result += wrap("minValue") + ":" + std::to_string(_minVal) + ",";
 
-	snprintf(tempStr, 16, "%f", _maxVal);
-	if (_maxVal != INT32_MAX)
-		result += wrap("maxValue") + ":" + tempStr + ",";
+	if (_maxVal != std::numeric_limits<double>::max())
+		result += wrap("maxValue") + ":" + std::to_string(_maxVal) + ",";
 
-	snprintf(tempStr, 16, "%f", _step);
 	if (_step > 0)
-		result += wrap("minStep") + ":" + tempStr + ",";
+		result += wrap("minStep") + ":" + std::to_string(_step) + ",";
 
 	result += wrap("perms") + ":";
 	result += "[";
@@ -76,12 +82,14 @@ std::string FloatCharacteristics::describe()
 	result += "]";
 	result += ",";
 
-	snprintf(tempStr, 16, "%X", _type);
-	result += wrap("type") + ":" + wrap(tempStr);
-	result += ",";
+	{
+		char temp[8];
+		snprintf(temp, 8, "%X", _type);
+		result += wrap("type") + ":" + wrap(temp);
+		result += ",";
+	}
 
-	snprintf(tempStr, 16, "%hd", getID());
-	result += wrap("iid") + ":" + tempStr;
+	result += wrap("iid") + ":" + std::to_string(getID());
 	result += ",";
 
 	switch (_unit) {
@@ -94,6 +102,9 @@ std::string FloatCharacteristics::describe()
 	case unit_percentage:
 		result += wrap("unit") + ":" + wrap("percentage") + ",";
 		break;
+	case unit_none:
+	default:
+		break;
 	}
 
 	result += "\"format\":\"float\"";
@@ -102,7 +113,7 @@ std::string FloatCharacteristics::describe()
 }
 
 void FloatCharacteristics::setValueChangeCB(
-	std::function<void(float oldValue, float newValue, void* sender)> cb)
+	std::function<void(double oldValue, double newValue, void* sender)> cb)
 {
 	_valueChangeCB = cb;
 }

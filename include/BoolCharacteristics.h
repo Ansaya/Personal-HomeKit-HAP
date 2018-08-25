@@ -12,11 +12,13 @@ class BoolCharacteristics: public Characteristics {
 public:
 	BoolCharacteristics(char_type _type, permission _premission);
 
-	std::string getValue() override;
+	std::string getValue() const override;
 
 	void setValue(const std::string& newValue, void* sender) override;
 
-	std::string describe() override;
+	void setValue(bool newValue, void* sender = nullptr);
+
+	std::string describe() const override;
 
 	void setValueChangeCB(std::function<void(bool oldValue, bool newValue, void* sender)> cb = nullptr);
 

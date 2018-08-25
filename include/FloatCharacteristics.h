@@ -11,22 +11,29 @@ namespace hap {
 
 class FloatCharacteristics: public Characteristics {
 public:
-	FloatCharacteristics(char_type type, permission permission, 
-		float minVal, float maxVal, float step, unit charUnit);
+	FloatCharacteristics(
+		char_type type, 
+		permission permission, 
+		double minVal = std::numeric_limits<double>::min(),
+		double maxVal = std::numeric_limits<double>::max(),
+		double step = 0.0, 
+		unit charUnit = unit_none);
 
-	std::string getValue() override;
+	std::string getValue() const override;
 
-	void setValue(const std::string& newValue, void* sender) override;
+	void setValue(const std::string& newValue, void* sender = nullptr) override;
 
-	std::string describe() override;
+	void setValue(double newValue, void* sender = nullptr);
 
-	void setValueChangeCB(std::function<void(float oldValue, float newValue, void* sender)> cb = nullptr);
+	std::string describe() const override;
+
+	void setValueChangeCB(std::function<void(double oldValue, double newValue, void* sender)> cb = nullptr);
 
 private:
-	float _value;
-	const float _minVal, _maxVal, _step;
+	double _value;
+	const double _minVal, _maxVal, _step;
 	const unit _unit;
-	std::function<void(float oldValue, float newValue, void* sender)> _valueChangeCB;
+	std::function<void(double oldValue, double newValue, void* sender)> _valueChangeCB;
 };
 
 }

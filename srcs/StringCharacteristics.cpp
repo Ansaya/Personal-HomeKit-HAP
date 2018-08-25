@@ -6,12 +6,12 @@
 using namespace hap;
 
 StringCharacteristics::StringCharacteristics(
-	char_type type, permission permission, uint16_t maxLen)
+	char_type type, permission permission, uint8_t maxLen)
 	: Characteristics(type, permission), _maxLen(maxLen)
 {
 }
 
-std::string StringCharacteristics::getValue()
+std::string StringCharacteristics::getValue() const
 {
 #ifdef HAP_THREAD_SAFE
 	std::unique_lock<std::mutex> lock(_valueHandle);
@@ -36,15 +36,18 @@ void StringCharacteristics::setValue(const std::string& newValue, void* sender)
 		_value = _newValue;
 	}
 
+	if (sender == nullptr) {
+		notify();
+	}
+
 	if (_valueChangeCB != nullptr && sender != nullptr) {
 		_valueChangeCB(oldValue, _newValue, sender);
 	}
 }
 
-std::string StringCharacteristics::describe()
+std::string StringCharacteristics::describe() const
 {
 	std::string result;
-	char tempStr[4];
 
 	if (_permission & permission_read) {
 		result += wrap("value") + ":" + getValue();
@@ -60,17 +63,18 @@ std::string StringCharacteristics::describe()
 	result += "]";
 	result += ",";
 
-	snprintf(tempStr, 4, "%X", _type);
-	result += wrap("type") + ":" + wrap(tempStr);
+	{
+		char temp[8];
+		snprintf(temp, 8, "%X", _type);
+		result += wrap("type") + ":" + wrap(temp);
+		result += ",";
+	}
+
+	result += wrap("iid") + ":" + std::to_string(getID());
 	result += ",";
 
-	snprintf(tempStr, 4, "%hd", getID());
-	result += wrap("iid") + ":" + tempStr;
-	result += ",";
-
-	if (_maxLen > 0) {
-		snprintf(tempStr, 4, "%hd", _maxLen);
-		result += wrap("maxLen") + ":" + tempStr;
+	if (_maxLen != 64) {
+		result += wrap("maxLen") + ":" + std::to_string(_maxLen);
 		result += ",";
 	}
 

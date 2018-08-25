@@ -11,13 +11,21 @@ namespace hap {
 
 class IntCharacteristics: public Characteristics {
 public:
-	IntCharacteristics(char_type _type, permission _premission, int minVal, int maxVal, int step, unit charUnit);
+	IntCharacteristics(
+		char_type _type, 
+		permission _premission, 
+		int minVal = std::numeric_limits<int>::min(),
+		int maxVal = std::numeric_limits<int>::max(),
+		int step = 0, 
+		unit charUnit = unit_none);
 
-	std::string getValue() override;
+	std::string getValue() const override;
 
 	void setValue(const std::string& newValue, void* sender) override;
 
-	std::string describe() override;
+	void setValue(int newValue, void* sender = nullptr);
+
+	std::string describe() const override;
 
 	void setValueChangeCB(std::function<void(int oldValue, int newValue, void* sender)> cb = nullptr);
 

@@ -6,72 +6,160 @@
 
 using namespace hap;
 
-void dimmLightIdentify(bool oldValue, bool newValue, void* info) {
-	printf("\nStart Identify Dimmable Light\n\n");
-}
+void showcaseInitializer() {
+	printf("Apple HomeKit accessory showcase initialization...\n");
 
-void lightIdentify(bool oldValue, bool newValue, void* info) {
-	printf("\nStart Identify Light\n\n");
-}
-
-void switchIdentify(bool oldValue, bool newValue, void* info) {
-	printf("\nStart Identify Switch\n\n");
-}
-
-void outletIdentify(bool oldValue, bool newValue, void* info) {
-	printf("\nStart Identify Outlet\n\n");
-}
-
-void initAccessorySet() {
-	printf("Accessories initialization\n");
-
-	//Add Dimmable Light
-	Accessory_ptr dimmLightAcc = std::make_shared<Accessory>();
-	AccessorySet::getInstance().addAccessory(dimmLightAcc);
-
-	dimmLightAcc->addInfoService("Dimmable light", "Flow3r", "Dimmable Light", "12345678", &dimmLightIdentify);
-
-	StringCharacteristics_ptr dimmLightName;
-	BoolCharacteristics_ptr dimmPowerState;
-	IntCharacteristics_ptr dimmBrightnessState;
-	Service_ptr dimmLightService = dimmLightAcc->addLightBulbService(dimmLightName, dimmPowerState, dimmBrightnessState);
-
-	dimmLightName->Characteristics::setValue("Dimmable light");
-	dimmPowerState->Characteristics::setValue("true");
-	dimmBrightnessState->setValueChangeCB([dimmLightAcc, dimmLightName, dimmPowerState](int oldValue, int newValue, void* info) {
-		if (newValue != 0) {
-			printf("Accessory %d changed service '%s' value to %d.\n", 
-				dimmLightAcc->getID(), dimmLightName->getValue().c_str(), newValue);
-			dimmPowerState->Characteristics::setValue("true");
-		}
-	});
-
-	//Add Light
+	//Add Lightbulb
+	printf("Adding lightbulb accessory...\n");
 	Accessory_ptr lightAcc = std::make_shared<Accessory>();
 	AccessorySet::getInstance().addAccessory(lightAcc);
 
-	lightAcc->addInfoService("Light", "Flow3r", "Light", "12345678", &lightIdentify);
+	lightAcc->addInfoService(
+		"Lightbulb", 
+		"Flow3r", 
+		"Lightbulb", 
+		"12345678", 
+		"1.0.0", 
+		[](bool oldValue, bool newValue, void* sender){ printf("\nLight identification routine\n"); });
 
+	BoolCharacteristics_ptr lightPower;
+	IntCharacteristics_ptr lightBrightness;
+	FloatCharacteristics_ptr lightHue;
 	StringCharacteristics_ptr lightName;
-	BoolCharacteristics_ptr powerState;
-	Service_ptr lightService = lightAcc->addLightBulbService(lightName, powerState);
+	FloatCharacteristics_ptr lightSaturation;
+	IntCharacteristics_ptr lightColorTemperature;
+	Service_ptr dimmLightService = lightAcc->
+		addLightBulbService(&lightPower, &lightBrightness, &lightHue, &lightName, &lightSaturation, &lightColorTemperature);
 
-	lightName->Characteristics::setValue("Light");
-	powerState->Characteristics::setValue("true");
-
+	lightName->setValue("Dimmable light");
+	lightPower->setValue(false);
+	lightPower->setValueChangeCB(
+		[lightAcc, lightName](bool oldValue, bool newValue, void* sender) {
+		printf("Accessory %d changed service %s state to %s.\n",
+			lightAcc->getID(), lightName->getValue().c_str(), newValue ? "on" : "off");
+	});
+	lightBrightness->setValueChangeCB(
+		[lightAcc, lightName, lightPower](int oldValue, int newValue, void* sender) {
+		printf("Accessory %d changed service %s brightness to %d.\n",
+			lightAcc->getID(), lightName->getValue().c_str(), newValue);
+		lightPower->setValue("true");
+	});
+	lightHue->setValueChangeCB(
+		[lightAcc, lightName](double oldValue, double newValue, void* sender) {
+		printf("Accessory %d changed service %s hue to %d.\n",
+			lightAcc->getID(), lightName->getValue().c_str(), newValue);
+	});
+	lightSaturation->setValueChangeCB(
+		[lightAcc, lightName](double oldValue, double newValue, void* sender) {
+		printf("Accessory %d changed service %s saturation to %d.\n",
+			lightAcc->getID(), lightName->getValue().c_str(), newValue);
+	});
+	lightColorTemperature->setValueChangeCB(
+		[lightAcc, lightName](int oldValue, int newValue, void* sender) {
+		printf("Accessory %d changed service %s color temperature to %d.\n",
+			lightAcc->getID(), lightName->getValue().c_str(), newValue);
+	});
 
 	//Add Switch
+	printf("Adding switch accessory...\n");
 	Accessory_ptr switchAcc = std::make_shared<Accessory>();
 	AccessorySet::getInstance().addAccessory(switchAcc);
 
-	switchAcc->addInfoService("Switch", "Flow3r", "Switch", "12345678", &switchIdentify);
+	switchAcc->addInfoService(
+		"Switch", 
+		"Flow3r", 
+		"Switch", 
+		"12345678", 
+		"1.0.0", 
+		[](bool oldValue, bool newValue, void* sender) { printf("\nSwitch identification routine\n"); });
 
-	StringCharacteristics_ptr switchName;
 	BoolCharacteristics_ptr switchPower;
-	Service_ptr switchService = switchAcc->addSwithService(switchName, switchPower);
+	StringCharacteristics_ptr switchName;
+	Service_ptr switchService = switchAcc->addSwithService(&switchPower, &switchName);
 
-	switchName->Characteristics::setValue("Switch");
-	switchPower->Characteristics::setValue("false");
+	switchName->setValue("Switch");
+	switchPower->setValue(false);
+	switchPower->setValueChangeCB(
+		[switchAcc, switchName](bool oldValue, bool newValue, void* sender) {
+		printf("Accessory %d changed service %s state to %s.\n",
+			switchAcc->getID(), switchName->getValue().c_str(), newValue ? "on" : "off");
+	});
+
+	// Add outlet
+	printf("Adding outlet accessory...\n");
+	Accessory_ptr outletAcc = std::make_shared<Accessory>();
+	AccessorySet::getInstance().addAccessory(outletAcc);
+
+	outletAcc->addInfoService(
+		"Outlet",
+		"Flow3r",
+		"Outlet",
+		"12345678",
+		"1.0.0",
+		[](bool oldValue, bool newValue, void* sender) { printf("\nOutlet identification routine\n"); });
+
+	BoolCharacteristics_ptr outletPower;
+	BoolCharacteristics_ptr outletInUse;
+	StringCharacteristics_ptr outletName;
+	Service_ptr outletService = outletAcc->addOutletService(&outletPower, &outletInUse, &outletName);
+
+	outletName->setValue("Outlet");
+	outletPower->setValue(true);
+	outletPower->setValueChangeCB(
+		[outletAcc, outletName](bool oldValue, bool newValue, void* sender) {
+		printf("Accessory %d changed service %s state to %s.\n",
+			outletAcc->getID(), outletName->getValue().c_str(), newValue ? "on" : "off");
+	});
+	outletInUse->setValue(true);
+
+	// Add speaker - not supported yet
+	printf("Adding speaker accessory...\n");
+	Accessory_ptr speakerAcc = std::make_shared<Accessory>();
+	AccessorySet::getInstance().addAccessory(speakerAcc);
+
+	speakerAcc->addInfoService(
+		"Speaker",
+		"Flow3r",
+		"Speaker",
+		"12345678",
+		"1.0.0",
+		[](bool oldValue, bool newValue, void* sender) { printf("\nSpeaker identification routine\n"); });
+
+	BoolCharacteristics_ptr speakerMute;
+	IntCharacteristics_ptr speakerVolume;
+	StringCharacteristics_ptr speakerName;
+	speakerAcc->addSpeakerService(&speakerMute, &speakerVolume, &speakerName);
+
+	speakerName->setValue("Speaker");
+	speakerMute->setValueChangeCB(
+		[speakerAcc, speakerName](bool oldValue, bool newValue, void* sender) {
+		printf("Accessory %d changed service %s mute to %s.\n",
+			speakerAcc->getID(), speakerName->getValue().c_str(), newValue ? "on" : "off");
+	});
+	speakerVolume->setValueChangeCB(
+		[speakerAcc, speakerName](int oldValue, int newValue, void* sender) {
+		printf("Accessory %d changed service %s volume to %d.\n",
+			speakerAcc->getID(), speakerName->getValue().c_str(), newValue);
+	});
+
+	// Add stateles programmable switch
+	printf("Adding programmable switch accessory...\n");
+	Accessory_ptr progSwitchAcc = std::make_shared<Accessory>();
+	AccessorySet::getInstance().addAccessory(progSwitchAcc);
+
+	progSwitchAcc->addInfoService(
+		"Prog switch",
+		"Flow3r",
+		"Programmable switch",
+		"12345678",
+		"1.0.0",
+		[](bool oldValue, bool newValue, void* sender) { printf("\nProgrammable switch identification routine\n"); });
+
+	IntCharacteristics_ptr progSwitchEventChar;
+	StringCharacteristics_ptr progSwitchNameChar;
+	progSwitchAcc->addStatelessSwithService(&progSwitchEventChar, &progSwitchNameChar);
+
+	progSwitchNameChar->setValue("Prog switch");
 };
 
 int main(int argc, const char * argv[]) {
@@ -82,7 +170,7 @@ int main(int argc, const char * argv[]) {
 		KeyController::getInstance().resetControllerRecord();
 	}
 
-	initAccessorySet();
+	showcaseInitializer();
 
 	net::HAPService::getInstance().setupAndListen("LibHAP tester", "123-45-678");
 

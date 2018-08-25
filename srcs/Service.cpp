@@ -53,7 +53,7 @@ bool Service::removeCharacteristic(Characteristics_ptr characteristic)
 	return false;
 }
 
-Characteristics_ptr Service::getCharacteristic(int id)
+Characteristics_ptr Service::getCharacteristic(int id) const
 { 
 #ifdef HAP_THREAD_SAFE
 	std::unique_lock<std::mutex> lock(_characteristicsList);
@@ -68,20 +68,18 @@ Characteristics_ptr Service::getCharacteristic(int id)
 	return nullptr;
 }
 
-std::string Service::describe()
+std::string Service::describe() const
 {
 	std::string keys[3] = { "iid", "type", "characteristics" };
 	std::string values[3];
-	{
-		char temp[8];
-		snprintf(temp, 8, "%d", _id);
-		values[0] = temp;
-	}
+
+	values[0] = std::to_string(_id);
 	{
 		char temp[8];
 		snprintf(temp, 8, "\"%X\"", _type);
 		values[1] = temp;
 	}
+
 	{
 #ifdef HAP_THREAD_SAFE
 		std::unique_lock<std::mutex> lock(_characteristicsList);

@@ -7,7 +7,7 @@
 //
 //
 
-//#define HAP_DEBUG
+#define HAP_DEBUG
 //#define HAP_NET_DEBUG
 
 // Allow more than one device to be paired to the accessory set

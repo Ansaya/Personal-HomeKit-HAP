@@ -10,7 +10,7 @@ BoolCharacteristics::BoolCharacteristics(char_type _type, permission _premission
 {
 }
 
-std::string BoolCharacteristics::getValue()
+std::string BoolCharacteristics::getValue() const
 {
 #ifdef HAP_THREAD_SAFE
 	std::unique_lock<std::mutex> lock(_valueHandle);
@@ -23,8 +23,11 @@ std::string BoolCharacteristics::getValue()
 
 void BoolCharacteristics::setValue(const std::string& newValue, void* sender)
 {
-	bool _newValue = ("true" == newValue || "1" == newValue);
+	return setValue((bool)("true" == newValue || "1" == newValue), sender);
+}
 
+void BoolCharacteristics::setValue(bool newValue, void* sender)
+{
 	bool oldValue;
 
 	{
@@ -33,15 +36,19 @@ void BoolCharacteristics::setValue(const std::string& newValue, void* sender)
 #endif
 		oldValue = _value;
 
-		_value = _newValue;
+		_value = newValue;
+	}
+
+	if (sender == nullptr) {
+		notify();
 	}
 
 	if (_valueChangeCB != nullptr && sender != nullptr) {
-		_valueChangeCB(oldValue, _newValue, sender);
+		_valueChangeCB(oldValue, newValue, sender);
 	}
 }
 
-std::string BoolCharacteristics::describe()
+std::string BoolCharacteristics::describe() const
 {
 	std::string result;
 	if (_permission & permission_read) {
@@ -59,13 +66,14 @@ std::string BoolCharacteristics::describe()
 	result += "]";
 	result += ",";
 
-	char tempStr[4];
-	snprintf(tempStr, 4, "%X", _type);
-	result += wrap("type") + ":" + wrap(tempStr);
-	result += ",";
+	{
+		char temp[8];
+		snprintf(temp, 8, "%X", _type);
+		result += wrap("type") + ":" + wrap(temp);
+		result += ",";
+	}
 
-	snprintf(tempStr, 4, "%hd", getID());
-	result += wrap("iid") + ":" + tempStr;
+	result += wrap("iid") + ":" + std::to_string(getID());
 	result += ",";
 
 	result += "\"format\":\"bool\"";

@@ -25,9 +25,9 @@ public:
 
 	bool removeCharacteristic(Characteristics_ptr characteristic);
 
-	Characteristics_ptr getCharacteristic(int id);
+	Characteristics_ptr getCharacteristic(int id) const;
 
-    std::string describe();
+    std::string describe() const;
 
 private:
 	int _id;
@@ -35,7 +35,7 @@ private:
 	const service_type _type;
 	std::shared_ptr<std::atomic_ushort> _parentInstancesID;
 
-	std::mutex _characteristicsList;
+	mutable std::mutex _characteristicsList;
 	std::vector<Characteristics_ptr> _characteristics;
 
 	Service(Service const&) = delete;

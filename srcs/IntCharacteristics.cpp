@@ -12,7 +12,7 @@ IntCharacteristics::IntCharacteristics(char_type type, permission premission,
 {
 }
 
-std::string IntCharacteristics::getValue()
+std::string IntCharacteristics::getValue() const
 {
 #ifdef HAP_THREAD_SAFE
 	std::unique_lock<std::mutex> lock(_valueHandle);
@@ -23,11 +23,17 @@ std::string IntCharacteristics::getValue()
 
 void IntCharacteristics::setValue(const std::string& newValue, void* sender)
 {
-	float temp = std::stof(newValue);
-	if (temp > _maxVal)
-		temp = _maxVal;
-	if (temp < _minVal)
-		temp = _minVal;
+	return setValue(std::stoi(newValue), sender);
+}
+
+void IntCharacteristics::setValue(int newValue, void* sender)
+{
+	if (newValue > _maxVal) {
+		newValue = _maxVal;
+	}
+	else if (newValue < _minVal) {
+		newValue = _minVal;
+	}
 
 	int oldValue;
 
@@ -37,35 +43,36 @@ void IntCharacteristics::setValue(const std::string& newValue, void* sender)
 #endif
 		oldValue = _value;
 
-		_value = temp;
+		_value = newValue;
+	}
+
+	if (sender == nullptr) {
+		notify();
 	}
 
 	if (_valueChangeCB != nullptr && sender != nullptr) {
-		_valueChangeCB(oldValue, temp, sender);
+		_valueChangeCB(oldValue, newValue, sender);
 	}
 }
 
-std::string IntCharacteristics::describe()
+std::string IntCharacteristics::describe() const
 {
 	std::string result;
-	char tempStr[16];
 
 	if (_permission & permission_read) {
 		result += wrap("value") + ":" + getValue();
 		result += ",";
 	}
 
-	snprintf(tempStr, 16, "%d", _minVal);
-	if (_minVal != INT32_MIN)
-		result += wrap("minValue") + ":" + tempStr + ",";
+	if (_minVal != std::numeric_limits<int>::min())
+		result += wrap("minValue") + ":" + std::to_string(_minVal) + ",";
 
-	snprintf(tempStr, 16, "%d", _maxVal);
-	if (_maxVal != INT32_MAX)
-		result += wrap("maxValue") + ":" + tempStr + ",";
 
-	snprintf(tempStr, 16, "%d", _step);
+	if (_maxVal != std::numeric_limits<int>::max())
+		result += wrap("maxValue") + ":" + std::to_string(_maxVal) + ",";
+
 	if (_step > 0)
-		result += wrap("minStep") + ":" + tempStr + ",";
+		result += wrap("minStep") + ":" + std::to_string(_step) + ",";
 
 	result += wrap("perms") + ":";
 	result += "[";
@@ -76,12 +83,14 @@ std::string IntCharacteristics::describe()
 	result += "]";
 	result += ",";
 
-	snprintf(tempStr, 16, "%X", _type);
-	result += wrap("type") + ":" + wrap(tempStr);
-	result += ",";
+	{
+		char temp[8];
+		snprintf(temp, 8, "%X", _type);
+		result += wrap("type") + ":" + wrap(temp);
+		result += ",";
+	}
 
-	snprintf(tempStr, 16, "%hd", getID());
-	result += wrap("iid") + ":" + tempStr;
+	result += wrap("iid") + ":" + std::to_string(getID());
 	result += ",";
 
 	switch (_unit) {
@@ -93,6 +102,9 @@ std::string IntCharacteristics::describe()
 		break;
 	case unit_percentage:
 		result += wrap("unit") + ":" + wrap("percentage") + ",";
+		break;
+	case unit_none:
+	default:
 		break;
 	}
 

@@ -20,13 +20,11 @@ public:
 
 	uint16_t getAID() const;
     
-	virtual std::string getValue() = 0;
+	virtual std::string getValue() const = 0;
     
-	virtual void setValue(const std::string& newValue);
+	virtual void setValue(const std::string& newValue, void* sender = nullptr) = 0;
     
-	virtual void setValue(const std::string& newValue, void* sender) = 0;
-    
-	virtual std::string describe() = 0;
+	virtual std::string describe() const = 0;
     
 	bool writable() const;
     
@@ -37,7 +35,7 @@ public:
 protected:
 	const char_type _type;
 	const permission _permission;
-	std::mutex _valueHandle;
+	mutable std::mutex _valueHandle;
 
 private:
 	uint16_t _id;

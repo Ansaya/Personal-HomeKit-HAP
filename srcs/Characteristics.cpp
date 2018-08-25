@@ -20,12 +20,6 @@ uint16_t Characteristics::getAID() const
 	return _aid;
 }
 
-void Characteristics::setValue(const std::string& newValue)
-{
-	setValue(newValue, nullptr);
-	notify();
-}
-
 bool Characteristics::writable() const
 { 
 	return _permission & permission_write;
