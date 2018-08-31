@@ -73,7 +73,7 @@ public:
 	 *
 	 *	@return New switch service object
 	 */
-	Service_ptr addSwithService(
+	Service_ptr addSwitchService(
 		BoolCharacteristics_ptr* onChar, 
 		StringCharacteristics_ptr* nameChar = nullptr);
 
@@ -99,7 +99,7 @@ public:
 	 *	@param nameChar service name
 	 *	@param labelIndexChar service label index value 
 	 */
-	Service_ptr addStatelessSwithService(
+	Service_ptr addStatelessSwitchService(
 		IntCharacteristics_ptr* eventChar,
 		StringCharacteristics_ptr* nameChar = nullptr,
 		IntCharacteristics_ptr* labelIndexChar = nullptr);

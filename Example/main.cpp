@@ -75,7 +75,7 @@ void showcaseInitializer() {
 
 	BoolCharacteristics_ptr switchPower;
 	StringCharacteristics_ptr switchName;
-	Service_ptr switchService = switchAcc->addSwithService(&switchPower, &switchName);
+	Service_ptr switchService = switchAcc->addSwitchService(&switchPower, &switchName);
 
 	switchName->setValue("Switch");
 	switchPower->setValue(false);
@@ -157,7 +157,7 @@ void showcaseInitializer() {
 
 	IntCharacteristics_ptr progSwitchEventChar;
 	StringCharacteristics_ptr progSwitchNameChar;
-	progSwitchAcc->addStatelessSwithService(&progSwitchEventChar, &progSwitchNameChar);
+	progSwitchAcc->addStatelessSwitchService(&progSwitchEventChar, &progSwitchNameChar);
 
 	progSwitchNameChar->setValue("Prog switch");
 };

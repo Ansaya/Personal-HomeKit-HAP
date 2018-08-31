@@ -71,7 +71,7 @@ Service_ptr Accessory::addLightBulbService(
 	return lightBulbService;
 }
 
-Service_ptr Accessory::addSwithService(
+Service_ptr Accessory::addSwitchService(
 	BoolCharacteristics_ptr* onChar,
 	StringCharacteristics_ptr* nameChar)
 {
@@ -111,7 +111,7 @@ Service_ptr Accessory::addOutletService(
 	return outletService;
 }
 
-Service_ptr Accessory::addStatelessSwithService(
+Service_ptr Accessory::addStatelessSwitchService(
 	IntCharacteristics_ptr* eventChar,
 	StringCharacteristics_ptr* nameChar,
 	IntCharacteristics_ptr* labelIndexChar)
