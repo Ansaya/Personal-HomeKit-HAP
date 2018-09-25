@@ -122,7 +122,7 @@ public:
 	 *	@brief Add a temperature sensor service
 	 *
 	 *	@param temperatureChar temperature value
-	 *	@param nameChar serviceName
+	 *	@param nameChar service name
 	 *	@param statusActiveChar activity status value (true means correctly working)
 	 *	@param statusFaultChar fault status (1 means general fault)
 	 *	@param statusLowBatteryChar battery status (1 means low battery)
@@ -137,6 +137,32 @@ public:
 		IntCharacteristics_ptr* statusFalutChar = nullptr,
 		IntCharacteristics_ptr* statusLowBatteryChar = nullptr,
 		IntCharacteristics_ptr* statusTamperedChar = nullptr);
+
+	/**
+	 *	@brief Add a window covering service
+	 *
+	 *	@param targetPositionChar target accessory position (0 fully closed/least light - 100 fully opened/maximum light)
+	 *	@param currentPositionChar current accessory position
+	 *	@param positionStateChar 0 - going to minimum / 1 - going to maximum / 2 - stopped
+	 *	@param nameChar service name
+	 *	@param holdPositionChar if one the accessory has to stop moving
+	 *	@param currentHorizontalTiltAngleChar slats current horizontal tilt angle (-90/90)
+	 *	@param targetHorizontalTiltAngleChar slats target horizontal tilt angle
+	 *	@param currentVerticalTiltAngleChar slats current vertical tilt angle (-90/90)
+	 *	@param targetVerticalTiltAngleChar slats target vertical tilt angle
+	 *	@param obstructionDetectedChar true if an obstruction is detected blocking accessory movement
+	 */
+	Service_ptr addWindowCoveringService(
+		IntCharacteristics_ptr* targetPositionChar,
+		IntCharacteristics_ptr* currentPositionChar,
+		IntCharacteristics_ptr* positionStateChar,
+		StringCharacteristics_ptr* nameChar = nullptr,
+		BoolCharacteristics_ptr* holdPositionChar = nullptr,
+		IntCharacteristics_ptr* currentHorizontalTiltAngleChar = nullptr,
+		IntCharacteristics_ptr* targetHorizontalTiltAngleChar = nullptr,
+		IntCharacteristics_ptr* currentVerticalTiltAngleChar = nullptr,
+		IntCharacteristics_ptr* targetVerticalTiltAngleChar = nullptr,
+		BoolCharacteristics_ptr* obstructionDetectedChar = nullptr);
 
 	/**
 	 *	@brief Add given service to this accessory

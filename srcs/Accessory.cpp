@@ -201,6 +201,68 @@ Service_ptr Accessory::addTemperatureSensorService(
 	return temperatureService;
 }
 
+Service_ptr Accessory::addWindowCoveringService(
+	IntCharacteristics_ptr* targetPositionChar,
+	IntCharacteristics_ptr* currentPositionChar,
+	IntCharacteristics_ptr* positionStateChar,
+	StringCharacteristics_ptr* nameChar,
+	BoolCharacteristics_ptr* holdPositionChar,
+	IntCharacteristics_ptr* currentHorizontalTiltAngleChar,
+	IntCharacteristics_ptr* targetHorizontalTiltAngleChar,
+	IntCharacteristics_ptr* currentVerticalTiltAngleChar,
+	IntCharacteristics_ptr* targetVerticalTiltAngleChar,
+	BoolCharacteristics_ptr* obstructionDetectedChar)
+{
+	hap::Service_ptr windowCoveringService = std::make_shared<Service>(service_windowCover);
+	addService(windowCoveringService);
+
+	*targetPositionChar = std::make_shared<IntCharacteristics>(char_targetPosition, permission_all, 0, 100, 1, unit_percentage);
+	windowCoveringService->addCharacteristic(*targetPositionChar);
+
+	*currentPositionChar = std::make_shared<IntCharacteristics>(char_currentPosition, permission_read_notify, 0, 100, 1, unit_percentage);
+	windowCoveringService->addCharacteristic(*currentPositionChar);
+
+	*positionStateChar = std::make_shared<IntCharacteristics>(char_positionState, permission_read_notify, 0, 2, 1, unit_none);
+	windowCoveringService->addCharacteristic(*positionStateChar);
+
+	if (nameChar != nullptr) {
+		*nameChar = std::make_shared<StringCharacteristics>(char_serviceName, permission_read);
+		windowCoveringService->addCharacteristic(*nameChar);
+	}
+
+	if (holdPositionChar != nullptr) {
+		*holdPositionChar = std::make_shared<BoolCharacteristics>(char_holdPosition, permission_write);
+		windowCoveringService->addCharacteristic(*holdPositionChar);
+	}
+
+	if (currentHorizontalTiltAngleChar != nullptr) {
+		*currentHorizontalTiltAngleChar = std::make_shared<IntCharacteristics>(char_currentHorizontalTiltAngle, permission_read_notify, -90, 90, 1, unit_arcDegree);
+		windowCoveringService->addCharacteristic(*currentHorizontalTiltAngleChar);
+	}
+
+	if (targetHorizontalTiltAngleChar != nullptr) {
+		*targetHorizontalTiltAngleChar = std::make_shared<IntCharacteristics>(char_targetHorizontalTiltAngle, permission_all, -90, 90, 1, unit_arcDegree);
+		windowCoveringService->addCharacteristic(*targetHorizontalTiltAngleChar);
+	}
+
+	if (currentVerticalTiltAngleChar != nullptr) {
+		*currentVerticalTiltAngleChar = std::make_shared<IntCharacteristics>(char_currentVerticalTiltAngle, permission_read_notify, -90, 90, 1, unit_arcDegree);
+		windowCoveringService->addCharacteristic(*currentVerticalTiltAngleChar);
+	}
+
+	if (targetVerticalTiltAngleChar != nullptr) {
+		*targetVerticalTiltAngleChar = std::make_shared<IntCharacteristics>(char_targetVerticalTiltAngle, permission_all, -90, 90, 1, unit_arcDegree);
+		windowCoveringService->addCharacteristic(*targetVerticalTiltAngleChar);
+	}
+
+	if (obstructionDetectedChar != nullptr) {
+		*obstructionDetectedChar = std::make_shared<BoolCharacteristics>(char_obstruction, permission_read_notify);
+		windowCoveringService->addCharacteristic(*obstructionDetectedChar);
+	}
+
+	return windowCoveringService;
+}
+
 void Accessory::addService(Service_ptr newService)
 {
 	newService->_id = _instancesID->fetch_add(1);

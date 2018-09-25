@@ -160,6 +160,44 @@ void showcaseInitializer() {
 	progSwitchAcc->addStatelessSwitchService(&progSwitchEventChar, &progSwitchNameChar);
 
 	progSwitchNameChar->setValue("Prog switch");
+
+	// Add window covering
+	printf("Adding windows covering accessory...\n");
+	Accessory_ptr windowCoveringAcc = std::make_shared<Accessory>();
+	AccessorySet::getInstance().addAccessory(windowCoveringAcc);
+
+	windowCoveringAcc->addInfoService(
+		"Window covering",
+		"Flow3r",
+		"Window covering",
+		"12345678",
+		"1.0.0",
+		[](bool oldValue, bool newValue, void* sender) { printf("\nWindow covering identification routine\n"); });
+
+	IntCharacteristics_ptr wcTargetPosition;
+	IntCharacteristics_ptr wcCurrentPosition;
+	IntCharacteristics_ptr wcPositionState;
+
+	windowCoveringAcc->addWindowCoveringService(&wcTargetPosition, &wcCurrentPosition, &wcPositionState);
+
+	wcCurrentPosition->setValue(0);
+	wcPositionState->setValue(2);
+
+	wcCurrentPosition->setValueChangeCB([windowCoveringAcc](int oldValue, int newValue, void* sender) {
+		printf("Accessory %d changed current position to %d.\n", windowCoveringAcc->getID(), newValue);
+	});
+	wcTargetPosition->setValueChangeCB([windowCoveringAcc, wcCurrentPosition, wcPositionState](int oldValue, int newValue, void* sender) {
+		printf("User required target position %d on accessory %d.\n", newValue, windowCoveringAcc->getID());
+		
+		wcPositionState->setValue(oldValue > newValue ? 1 : 0);
+		std::this_thread::sleep_for(std::chrono::seconds(2));
+		wcCurrentPosition->setValue(newValue);
+		wcPositionState->setValue(2);
+	});
+	wcPositionState->setValueChangeCB([windowCoveringAcc](int oldValue, int newValue, void* sender) {
+		printf("Accessory %d changed position state to '%s'.\n", windowCoveringAcc->getID(), 
+			newValue == 0 ? "going to minimum" : newValue == 1 ? "going to maximum" : "stopped");
+	});
 };
 
 int main(int argc, const char * argv[]) {
