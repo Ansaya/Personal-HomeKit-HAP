@@ -49,6 +49,10 @@ namespace net {
 
 		bool isRunning() const;
 
+		const std::string& getServiceName() const;
+
+		const std::string& getServicePassword() const;
+
 		void announce(BroadcastInfo_ptr info);
 
 		/**

@@ -203,6 +203,16 @@ bool HAPService::isRunning() const
 	return _running.load();
 }
 
+const std::string& HAPService::getServiceName() const
+{
+	return _name;
+}
+
+const std::string& HAPService::getServicePassword() const
+{
+	return _password;
+}
+
 void HAPService::announce(BroadcastInfo_ptr info)
 {
 	if (!_running.load()) return;
