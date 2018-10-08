@@ -59,3 +59,6 @@ install(FILES ${LIB_HEADERS}
 install(FILES ${LIB_NET_HEADERS}
         DESTINATION /usr/local/include/${LIB_NAME}/net
 )
+
+### Showcase application
+add_subdirectory(Example)

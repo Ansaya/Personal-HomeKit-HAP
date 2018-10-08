@@ -9,9 +9,9 @@ Any supported type of accessory can be implemented using libHAP, which will take
 advertise the the accessory and trigger registerd callbacks when required from the HomeKit app.
 
 ## Quick start
-To have a quick showcase of what are the possibilites with libHAP just run the pre_install.sh script, compile the Example
-application and launch it; now pick your iPhone and connect to the bridge named "libHAP tester" (password 12345678) and enjoy
-some of the most common accessories you can expose through this library.
+To have a quick showcase of what are the possibilites with libHAP just run the install.sh script: it will install necessary dependencies, 
+compile the library and a little showcase application. Now launch the showcase executable, pick your iPhone and connect to the bridge 
+named "libHAP tester" (password 12345678) and enjoy some of the most common accessories you can expose through this library.
 
 Now keep an eye on the command line while clicking around on accessory properties and you'll see every change triggers a callback
 from the library: that's where your accessory will be attached to.

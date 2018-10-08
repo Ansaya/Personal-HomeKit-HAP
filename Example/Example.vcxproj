@@ -80,6 +80,9 @@
       <Project>{3cccc52f-0acc-4e2a-a1c7-7015dd7d612a}</Project>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="CMakeLists.txt" />
+  </ItemGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <ClCompile>
       <ExceptionHandling>Disabled</ExceptionHandling>
