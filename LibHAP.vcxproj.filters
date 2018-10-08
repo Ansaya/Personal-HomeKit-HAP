@@ -321,9 +321,10 @@
   <ItemGroup>
     <None Include="License" />
     <None Include="README.md" />
-    <None Include="pre_install.sh" />
+    <None Include="install.sh" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="SerivceList.txt" />
+    <Text Include="CMakeLists.txt" />
   </ItemGroup>
 </Project>

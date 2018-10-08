@@ -181,10 +181,11 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="License" />
-    <None Include="pre_install.sh" />
+    <None Include="install.sh" />
     <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
+    <Text Include="CMakeLists.txt" />
     <Text Include="SerivceList.txt" />
   </ItemGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
@@ -211,9 +212,10 @@
       <AdditionalLibraryDirectories>../bin/$(Platform)/$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <ClCompile>
-      <ExceptionHandling>Disabled</ExceptionHandling>
       <CAdditionalWarning>switch;no-deprecated-declarations;empty-body;no-conversion;return-type;parentheses;no-pointer-sign;no-format;uninitialized;unreachable-code;unused-function;unused-value;unused-variable</CAdditionalWarning>
       <CppAdditionalWarning>switch;no-deprecated-declarations;empty-body;no-conversion;return-type;parentheses;no-format;uninitialized;unreachable-code;unused-function;unused-value;unused-variable</CppAdditionalWarning>
+      <LinkTimeOptimization>true</LinkTimeOptimization>
+      <ExceptionHandling>Disabled</ExceptionHandling>
     </ClCompile>
     <RemotePostBuildEvent>
       <Command>sudo ln -sf $(RemoteOutDir)$(TargetFileName) /usr/local/lib/$(TargetFileName); if [ ! -L /usr/local/include/hap ]; then sudo ln -sf $(RemoteProjectDir)/include /usr/local/include/hap; fi;</Command>
