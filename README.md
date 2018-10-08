@@ -1,5 +1,4 @@
-#HomeKit Accessory Protocol Library
-
+# HomeKit Accessory Protocol Library
 Developing some domotic stuff? Want to open your garage door just yelling at Siri? With HAP library this is exactly what you can do!
 If your device has support for C++11 and is connected to a wifi then it's ready to go.
 
@@ -9,9 +8,7 @@ switch where multiple accessories can be attached and then controlled through th
 Any supported type of accessory can be implemented using libHAP, which will take care of all the backend stuff to correctly 
 advertise the the accessory and trigger registerd callbacks when required from the HomeKit app.
 
-===============
-
-#Quick start
+## Quick start
 To have a quick showcase of what are the possibilites with libHAP just run the pre_install.sh script, compile the Example
 application and launch it; now pick your iPhone and connect to the bridge named "libHAP tester" (password 12345678) and enjoy
 some of the most common accessories you can expose through this library.
@@ -27,7 +24,7 @@ In order to ease your job I've added some of the most common services as helper 
 have to read any documentation, but if you need others you can just configure them through the libHAP adding needed characteristics 
 to your service.
 
-#Attach your implementation to an HomeKit Accessory
+### Attach your implementation to an HomeKit Accessory
 To expose your accessory to the HomeKit application you will need to create an Accessory object, add an information service to it 
 (info service is required for all types of accessories by the HomeKit protocol) and any other service you need. While adding a new 
 service you should attach relative callbacks to its characteristics to let your implementation know when to act and what to do 
@@ -38,12 +35,12 @@ advertise your accessories through Bonjour mDNS service.
 
 That's it! As simple as attaching your callbacks and you're ready to say "Hei Siri, turn on Bedroom Light".
 
-==================================================
+--------------------------------------------------
 
-#Special Thanks
+## Special Thanks
 I really want to thank the owner of the project I've forked who took care of all the real work about studying the HAP protocol 
 documentation and implementing it all in C: my work was only to add some glitter and some C++ memory management stuff.
 
-#Legal Notice
+### Legal Notice
 This library is intended for private use only, for commercial implementation of the HAP protocol just refer to official Apple 
 documentation. If in any case there are some violation please contact me immediately and I'll take care of fixing what is needed.
