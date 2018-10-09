@@ -1,6 +1,6 @@
 #include <cstdio>
 #include <fstream>
-#include <hap/libHAP.h>
+#include <libHAP.h>
 #include <memory>
 #include <thread>
 
