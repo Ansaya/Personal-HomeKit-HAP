@@ -23,3 +23,5 @@
 obj
 bin
 .vs
+.vscode
+build

@@ -321,7 +321,6 @@
   <ItemGroup>
     <None Include="License" />
     <None Include="README.md" />
-    <None Include="install.sh" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="SerivceList.txt" />
